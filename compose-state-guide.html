@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compose State & Effects — Guia de Decisão</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3250;
+    --green: #6ee7a0;
+    --blue: #7eb8f7;
+    --purple: #c4a0f5;
+    --orange: #f5a66a;
+    --pink: #f77eb8;
+    --yellow: #f5d96a;
+    --text: #e8eaf6;
+    --muted: #7b82a8;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  header h1 {
+    font-size: clamp(20px, 5vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  header h1 span {
+    color: var(--green);
+    font-family: var(--mono);
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto 40px;
+  }
+
+  @media (max-width: 700px) {
+    .sections { grid-template-columns: 1fr; }
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    padding-left: 4px;
+  }
+
+  /* DECISION CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: 12px 0 0 12px;
+    background: var(--accent, var(--green));
+    opacity: 0.6;
+    transition: opacity 0.2s, width 0.2s;
+  }
+
+  .card:hover::before { opacity: 1; width: 4px; }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .api-name {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent, var(--green));
+  }
+
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--accent, var(--green)) 15%, transparent);
+    color: var(--accent, var(--green));
+    border: 1px solid color-mix(in srgb, var(--accent, var(--green)) 30%, transparent);
+  }
+
+  .when {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  .when strong {
+    color: var(--accent, var(--green));
+    font-weight: 600;
+  }
+
+  .code-block {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1.7;
+    color: var(--muted);
+    display: none;
+    border: 1px solid var(--border);
+    margin-top: 10px;
+  }
+
+  .card.open .code-block { display: block; }
+
+  .code-block .kw { color: var(--purple); }
+  .code-block .fn { color: var(--blue); }
+  .code-block .str { color: var(--yellow); }
+  .code-block .cm { color: #4a5180; font-style: italic; }
+  .code-block .acc { color: var(--accent, var(--green)); }
+
+  .toggle-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .toggle-hint::after {
+    content: '▼';
+    font-size: 9px;
+    transition: transform 0.2s;
+  }
+
+  .card.open .toggle-hint::after { transform: rotate(180deg); }
+
+  /* DECISION TREE */
+  .decision-tree {
+    max-width: 1000px;
+    margin: 0 auto 40px;
+  }
+
+  .tree-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    padding-left: 4px;
+  }
+
+  .tree {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    overflow-x: auto;
+  }
+
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    min-width: 300px;
+  }
+
+  .question {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+    position: relative;
+  }
+
+  .q-icon {
+    font-size: 16px;
+    margin-right: 6px;
+  }
+
+  .branches {
+    display: flex;
+    gap: 16px;
+    margin-top: 0;
+  }
+
+  .branch {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .branch-line {
+    width: 1px;
+    height: 24px;
+    background: var(--border);
+    position: relative;
+  }
+
+  .branch-label {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin: 4px 0;
+    text-transform: uppercase;
+  }
+
+  .branch-label.yes { color: var(--green); }
+  .branch-label.no { color: var(--pink); }
+
+  .result {
+    background: color-mix(in srgb, var(--res-color, var(--green)) 10%, var(--surface2));
+    border: 1px solid color-mix(in srgb, var(--res-color, var(--green)) 40%, transparent);
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-align: center;
+    width: 100%;
+  }
+
+  .result .api {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--res-color, var(--green));
+  }
+
+  .result .desc {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+
+  .connector {
+    display: flex;
+    justify-content: center;
+  }
+
+  .connector .line {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+  }
+
+  /* QUICK REF TABLE */
+  .quick-ref {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  td {
+    padding: 12px 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+    vertical-align: top;
+  }
+
+  td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    flex-shrink: 0;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .check { color: var(--green); font-size: 13px; }
+  .cross { color: var(--pink); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Jetpack <span>Compose</span> — State & Effects</h1>
+  <p>Clique nos cards para ver exemplos de código</p>
+</header>
+
+<!-- STATE CARDS -->
+<div class="sections">
+  <div>
+    <div class="section-title">📦 State — armazenamento</div>
+
+    <div class="card" style="--accent: var(--green)" onclick="toggle(this)" style="margin-bottom:12px">
+      <div class="card-header">
+        <span class="api-name">mutableStateOf</span>
+        <span class="tag">base</span>
+      </div>
+      <div class="when">Use quando precisa de <strong>qualquer estado reativo</strong>. Fundação de tudo.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// sempre dentro de remember</span>
+<span class="kw">var</span> nome <span class="kw">by</span> <span class="fn">remember</span> { <span class="fn">mutableStateOf</span>(<span class="str">""</span>) }
+
+<span class="cm">// ou sem delegate</span>
+<span class="kw">val</span> nome = <span class="fn">remember</span> { <span class="fn">mutableStateOf</span>(<span class="str">""</span>) }
+nome.value = <span class="str">"Fabiano"</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--blue)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">rememberSaveable</span>
+        <span class="tag">persistência</span>
+      </div>
+      <div class="when">Use quando o estado deve <strong>sobreviver à rotação</strong> ou process death.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// primitivos — funciona direto</span>
+<span class="kw">var</span> texto <span class="kw">by</span> <span class="fn">rememberSaveable</span> { <span class="fn">mutableStateOf</span>(<span class="str">""</span>) }
+
+<span class="cm">// classe própria — use @Parcelize</span>
+<span class="kw">@Parcelize</span>
+<span class="kw">data class</span> <span class="acc">User</span>(<span class="kw">val</span> name: String) : Parcelable
+
+<span class="kw">var</span> user <span class="kw">by</span> <span class="fn">rememberSaveable</span> { <span class="fn">mutableStateOf</span>(<span class="acc">User</span>(<span class="str">""</span>)) }
+
+<span class="cm">// tipo de lib — use listSaver</span>
+<span class="kw">val</span> Saver = <span class="fn">listSaver</span>(
+  save = { <span class="fn">listOf</span>(it.name, it.age) },
+  restore = { <span class="acc">User</span>(it[<span class="str">0</span>], it[<span class="str">1</span>]) }
+)
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--purple)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">mutableStateListOf</span>
+        <span class="tag">listas</span>
+      </div>
+      <div class="when">Use para <strong>listas mutáveis</strong> onde add/remove devem atualizar a UI.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// ❌ List normal — Compose não detecta mudança</span>
+<span class="kw">var</span> items <span class="kw">by</span> <span class="fn">remember</span> { <span class="fn">mutableStateOf</span>(<span class="fn">mutableListOf</span>()) }
+items.add(<span class="str">"X"</span>) <span class="cm">// UI não atualiza!</span>
+
+<span class="cm">// ✅ SnapshotStateList — detecta tudo</span>
+<span class="kw">val</span> items = <span class="fn">remember</span> { <span class="fn">mutableStateListOf</span>(<span class="str">"A"</span>, <span class="str">"B"</span>) }
+items.add(<span class="str">"C"</span>) <span class="cm">// UI atualiza ✓</span>
+
+<span class="cm">// sempre use key no LazyColumn!</span>
+<span class="fn">LazyColumn</span> {
+  <span class="fn">items</span>(items, key = { it }) { <span class="fn">Text</span>(it) }
+}
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--orange)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">derivedStateOf</span>
+        <span class="tag">derivado</span>
+      </div>
+      <div class="when">Use quando um valor <strong>muda menos</strong> que o estado original. Evita recompositions.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// ❌ Recompõe a cada pixel de scroll</span>
+<span class="kw">val</span> show = scrollState.value > <span class="str">100</span>
+
+<span class="cm">// ✅ Recompõe só quando bool muda</span>
+<span class="kw">val</span> show <span class="kw">by</span> <span class="fn">remember</span> {
+  <span class="fn">derivedStateOf</span> { scrollState.value > <span class="str">100</span> }
+}
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--yellow)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">produceState</span>
+        <span class="tag">async → state</span>
+      </div>
+      <div class="when">Converte <strong>suspend / callback / Flow</strong> em State. LaunchedEffect que retorna valor.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="kw">val</span> user <span class="kw">by</span> <span class="fn">produceState</span>&lt;User?&gt;(
+  initialValue = <span class="kw">null</span>,
+  key1 = userId
+) {
+  value = repo.<span class="fn">getUser</span>(userId) <span class="cm">// suspend</span>
+
+  <span class="cm">// ou com cleanup (callback legado)</span>
+  <span class="kw">val</span> listener = <span class="acc">Listener</span> { value = it }
+  manager.<span class="fn">register</span>(listener)
+  <span class="fn">awaitDispose</span> { manager.<span class="fn">unregister</span>(listener) }
+}
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--pink)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">snapshotFlow</span>
+        <span class="tag">state → flow</span>
+      </div>
+      <div class="when">Converte State em Flow para usar <strong>operadores</strong> como debounce e filter.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="fn">LaunchedEffect</span>(<span class="acc">Unit</span>) {
+  <span class="fn">snapshotFlow</span> { searchQuery.value }
+    .<span class="fn">debounce</span>(<span class="str">300</span>)
+    .<span class="fn">filter</span> { it.length > <span class="str">2</span> }
+    .<span class="fn">collect</span> { query ->
+      viewModel.<span class="fn">search</span>(query)
+    }
+}
+
+<span class="cm">// caso Maps — evita jank</span>
+<span class="fn">snapshotFlow</span> { cameraState.position }
+  .<span class="fn">debounce</span>(<span class="str">500</span>)
+  .<span class="fn">collect</span> { viewModel.<span class="fn">loadMarkers</span>(it) }
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">⚡ Effects — efeitos colaterais</div>
+
+    <div class="card" style="--accent: var(--green)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">LaunchedEffect</span>
+        <span class="tag">coroutine</span>
+      </div>
+      <div class="when">Coroutine <strong>atrelada ao ciclo de vida</strong>. Reinicia quando a key muda.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// executa quando userId muda</span>
+<span class="fn">LaunchedEffect</span>(userId) {
+  user = repo.<span class="fn">getUser</span>(userId)
+}
+
+<span class="cm">// executa uma vez (Unit = sem mudança)</span>
+<span class="fn">LaunchedEffect</span>(<span class="acc">Unit</span>) {
+  viewModel.<span class="fn">init</span>()
+}
+
+<span class="cm">// cancela automaticamente ao sair da tela</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--blue)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">rememberCoroutineScope</span>
+        <span class="tag">evento</span>
+      </div>
+      <div class="when">Coroutine disparada por <strong>evento do usuário</strong> (clique, swipe).</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="kw">val</span> scope = <span class="fn">rememberCoroutineScope</span>()
+
+<span class="fn">Button</span>(onClick = {
+  scope.<span class="fn">launch</span> { <span class="cm">// assíncrono</span>
+    api.<span class="fn">salvar</span>(dados)
+  }
+}) { <span class="fn">Text</span>(<span class="str">"Salvar"</span>) }
+
+<span class="cm">// scope é cancelado quando</span>
+<span class="cm">// o Composable sai da tela</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--orange)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">SideEffect</span>
+        <span class="tag">síncrono</span>
+      </div>
+      <div class="when">Executa após <strong>cada recomposition</strong>. Sincroniza com código não-Compose.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// síncrono — não use suspend aqui</span>
+<span class="fn">SideEffect</span> {
+  analytics.<span class="fn">setScreen</span>(screenName)
+  firebaseLogger.<span class="fn">setUser</span>(userId)
+}
+
+<span class="cm">// roda após TODA recomposition bem-sucedida</span>
+<span class="cm">// use só para código rápido e não-suspend</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <div class="card" style="--accent: var(--purple)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">DisposableEffect</span>
+        <span class="tag">cleanup</span>
+      </div>
+      <div class="when">Registrar/desregistrar <strong>listeners e callbacks</strong>. Exige onDispose.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="fn">DisposableEffect</span>(<span class="acc">Unit</span>) {
+  <span class="kw">val</span> listener = <span class="acc">LocationListener</span> {
+    onLocation(it)
+  }
+  manager.<span class="fn">register</span>(listener)
+
+  <span class="fn">onDispose</span> { <span class="cm">// obrigatório!</span>
+    manager.<span class="fn">unregister</span>(listener)
+  }
+}
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <!-- Stability card -->
+    <div class="card" style="--accent: var(--pink)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">@Immutable / @Stable</span>
+        <span class="tag">performance</span>
+      </div>
+      <div class="when">Evita recompositions desnecessárias em <strong>classes customizadas</strong>.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// ❌ Compose não confia — recompõe sempre</span>
+<span class="kw">data class</span> <span class="acc">User</span>(<span class="kw">val</span> name: String)
+
+<span class="cm">// ✅ @Immutable — todos val, Compose confia</span>
+<span class="kw">@Immutable</span>
+<span class="kw">data class</span> <span class="acc">User</span>(<span class="kw">val</span> name: String)
+
+<span class="cm">// ✅ @Stable — var com mutableStateOf</span>
+<span class="kw">@Stable</span>
+<span class="kw">class</span> <span class="acc">UserState</span>(name: String) {
+  <span class="kw">var</span> name <span class="kw">by</span> <span class="fn">mutableStateOf</span>(name)
+}
+
+<span class="cm">// ⚠️ Lambda em data class quebra @Immutable</span>
+<span class="cm">// Use slot pattern em vez disso</span>
+      </div>
+    </div>
+
+    <div style="height:10px"></div>
+
+    <!-- graphicsLayer vs drawBehind -->
+    <div class="card" style="--accent: var(--yellow)" onclick="toggle(this)">
+      <div class="card-header">
+        <span class="api-name">graphicsLayer vs drawBehind</span>
+        <span class="tag">fases</span>
+      </div>
+      <div class="when"><strong>graphicsLayer</strong> transforma. <strong>drawBehind</strong> desenha. Ambos diferem leitura para Drawing.</div>
+      <div class="toggle-hint">ver exemplo</div>
+      <div class="code-block">
+<span class="cm">// graphicsLayer → transforma via GPU</span>
+<span class="fn">Modifier</span>.<span class="fn">graphicsLayer</span> {
+  alpha = scrollState.value / <span class="str">100f</span>
+  scaleX = <span class="str">1.2f</span>
+  rotationZ = <span class="str">45f</span>
+}
+
+<span class="cm">// drawBehind → canvas custom atrás do conteúdo</span>
+<span class="fn">Modifier</span>.<span class="fn">drawBehind</span> {
+  <span class="fn">drawCircle</span>(<span class="acc">Color</span>.Blue, radius = size.minDimension)
+}
+
+<span class="cm">// ambos: leitura ocorre em Drawing, não Composition</span>
+<span class="cm">// → sem recomposition desnecessária</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DECISION TREE -->
+<div class="decision-tree">
+  <div class="tree-title">🔀 Árvore de decisão rápida</div>
+  <div class="tree">
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+      <!-- State tree -->
+      <div>
+        <div style="font-size:12px; font-weight:700; color: var(--green); margin-bottom:14px; letter-spacing:1px;">STATE</div>
+        <div class="flow">
+          <div class="question"><span class="q-icon">🤔</span>Precisa que o estado sobreviva à rotação?</div>
+          <div class="branches">
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label yes">SIM</div>
+              <div class="branch-line"></div>
+              <div class="result" style="--res-color: var(--blue)">
+                <div class="api">rememberSaveable</div>
+                <div class="desc">+ @Parcelize ou Saver</div>
+              </div>
+            </div>
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label no">NÃO</div>
+              <div class="branch-line"></div>
+              <div class="question" style="font-size:12px">É uma lista mutável?</div>
+              <div class="branches">
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label yes">SIM</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--purple)">
+                    <div class="api">mutableStateListOf</div>
+                    <div class="desc">+ key no LazyColumn</div>
+                  </div>
+                </div>
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label no">NÃO</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--green)">
+                    <div class="api">mutableStateOf</div>
+                    <div class="desc">dentro de remember</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:16px"></div>
+
+          <div class="question"><span class="q-icon">🧮</span>Valor depende de outro estado?</div>
+          <div class="branches">
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label yes">usa na UI</div>
+              <div class="branch-line"></div>
+              <div class="result" style="--res-color: var(--orange)">
+                <div class="api">derivedStateOf</div>
+                <div class="desc">menos recompositions</div>
+              </div>
+            </div>
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label no">efeito colateral</div>
+              <div class="branch-line"></div>
+              <div class="result" style="--res-color: var(--pink)">
+                <div class="api">snapshotFlow</div>
+                <div class="desc">+ debounce / filter</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:16px"></div>
+
+          <div class="question"><span class="q-icon">🔄</span>Fonte assíncrona → State?</div>
+          <div class="connector"><div class="line"></div></div>
+          <div class="result" style="--res-color: var(--yellow)">
+            <div class="api">produceState</div>
+            <div class="desc">suspend / callback / Flow → State</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Effects tree -->
+      <div>
+        <div style="font-size:12px; font-weight:700; color: var(--blue); margin-bottom:14px; letter-spacing:1px;">EFFECTS</div>
+        <div class="flow">
+          <div class="question"><span class="q-icon">⚡</span>Precisa de coroutine (suspend)?</div>
+          <div class="branches">
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label yes">SIM</div>
+              <div class="branch-line"></div>
+              <div class="question" style="font-size:12px">Disparado por evento do usuário?</div>
+              <div class="branches">
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label yes">SIM</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--blue)">
+                    <div class="api">rememberCoroutineScope</div>
+                    <div class="desc">scope.launch { }</div>
+                  </div>
+                </div>
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label no">NÃO</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--green)">
+                    <div class="api">LaunchedEffect</div>
+                    <div class="desc">atrelado ao ciclo de vida</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label no">NÃO</div>
+              <div class="branch-line"></div>
+              <div class="question" style="font-size:12px">Precisa fazer cleanup?</div>
+              <div class="branches">
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label yes">SIM</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--purple)">
+                    <div class="api">DisposableEffect</div>
+                    <div class="desc">register + onDispose</div>
+                  </div>
+                </div>
+                <div class="branch">
+                  <div class="branch-line"></div>
+                  <div class="branch-label no">NÃO</div>
+                  <div class="branch-line"></div>
+                  <div class="result" style="--res-color: var(--orange)">
+                    <div class="api">SideEffect</div>
+                    <div class="desc">após cada recomposition</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="height:16px"></div>
+
+          <div class="question"><span class="q-icon">🎨</span>Animação / transformação visual?</div>
+          <div class="branches">
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label" style="color:var(--yellow)">TRANSFORMA</div>
+              <div class="branch-line"></div>
+              <div class="result" style="--res-color: var(--yellow)">
+                <div class="api">graphicsLayer { }</div>
+                <div class="desc">alpha, scale, rotation — GPU</div>
+              </div>
+            </div>
+            <div class="branch">
+              <div class="branch-line"></div>
+              <div class="branch-label" style="color:var(--pink)">DESENHA</div>
+              <div class="branch-line"></div>
+              <div class="result" style="--res-color: var(--pink)">
+                <div class="api">drawBehind { }</div>
+                <div class="desc">canvas custom atrás do conteúdo</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function toggle(card) {
+    card.classList.toggle('open');
+  }
+</script>
+
+</body>
+</html>
