@@ -1064,10 +1064,26 @@ function loadSnapshots(list) {
   renderSnapshot(0);
 }
 
+// Normaliza qualquer formato recebido para um array de snapshots
+function parseJSON(parsed, filename) {
+  // Formato 1 — envelope com "timeline": { timeline: [...snapshots] }
+  if (parsed && Array.isArray(parsed.timeline)) return parsed.timeline;
+  // Formato 2 — array direto: [...snapshots]
+  if (Array.isArray(parsed)) return parsed;
+  // Formato 3 — snapshot único: { requestId, timestamp, ... }
+  if (parsed && parsed.timestamp) return [parsed];
+  throw new Error(`Formato não reconhecido: ${filename}`);
+}
+
 function handleFiles(files) {
-  Promise.all([...files].map(f => new Promise((res,rej) => {
+  Promise.all([...files].map(f => new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload = e => { try { const p=JSON.parse(e.target.result); res(Array.isArray(p)?p:[p]); } catch { rej(new Error(`JSON inválido: ${f.name}`)); } };
+    r.onload = e => {
+      try {
+        const parsed = JSON.parse(e.target.result);
+        res(parseJSON(parsed, f.name));
+      } catch (err) { rej(new Error(`${f.name}: ${err.message}`)); }
+    };
     r.readAsText(f);
   }))).then(r => loadSnapshots(r.flat())).catch(e => alert(e.message));
 }
@@ -1162,7 +1178,7 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-loadSnapshots(SAMPLE);
+buildTimeline();
 </script>
 </body>
 </html>
