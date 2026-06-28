@@ -553,6 +553,145 @@ html, body {
   flex-shrink: 0;
 }
 
+/* ══ METADATA DRAWER ══ */
+.meta-drawer {
+  position: fixed;
+  top: var(--topbar-h);
+  right: 0;
+  bottom: var(--tl-h);
+  width: 280px;
+  background: var(--surf);
+  border-left: 1px solid var(--border2);
+  z-index: 520;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .25s cubic-bezier(.32,.72,0,1);
+  box-shadow: -8px 0 32px rgba(0,0,0,.4);
+}
+.meta-drawer.open { transform: translateX(0); }
+
+.meta-drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.meta-drawer-title {
+  flex: 1;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.meta-drawer-close {
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.meta-drawer-close:active { background: var(--surf2); }
+
+.meta-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0 16px;
+  -webkit-overflow-scrolling: touch;
+}
+.meta-drawer-body::-webkit-scrollbar { width: 3px; }
+.meta-drawer-body::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.meta-section {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.meta-section:last-child { border-bottom: none; }
+
+.meta-section-title {
+  font-size: .6rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted2);
+  padding: 4px 14px 6px;
+}
+
+/* Árvore de metadados */
+.meta-tree { padding: 0 14px; }
+
+.meta-node {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+.meta-node:last-child { border-bottom: none; }
+
+.meta-key {
+  font-size: .72rem;
+  font-family: var(--mono);
+  color: var(--source);
+  flex-shrink: 0;
+  max-width: 45%;
+  word-break: break-all;
+}
+.meta-colon {
+  font-size: .72rem;
+  color: var(--muted2);
+  flex-shrink: 0;
+}
+.meta-value {
+  font-size: .72rem;
+  font-family: var(--mono);
+  color: var(--text);
+  word-break: break-all;
+  flex: 1;
+}
+.meta-empty {
+  font-size: .72rem;
+  color: var(--muted2);
+  font-style: italic;
+  padding: 6px 14px;
+}
+
+/* Tocar no ponto-entry abre o drawer */
+.point-entry { cursor: pointer; }
+
+/* Botão de info no topbar */
+.meta-step-btn {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surf2);
+  border: 1px solid var(--border2);
+  border-radius: 5px;
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s;
+}
+.meta-step-btn:active { background: var(--border2); }
+
+/* Mobile: drawer full width */
+@media (max-width: 767px) {
+  .meta-drawer {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid var(--border2);
+  }
+}
+
 /* ══ DESKTOP: sidebar layout ══ */
 @media (min-width: 768px) {
   :root { --tl-h: 100px; }
@@ -633,6 +772,7 @@ html, body {
   <div class="topbar-snap" id="snap-counter">—</div>
   <div class="topbar-ts"  id="snap-ts"></div>
   <div class="topbar-actions">
+    <button class="meta-step-btn" id="btn-step-meta" title="Metadados do step">META</button>
     <button class="icon-btn" id="btn-legend" title="Legenda" style="font-size:.8rem; font-weight:700; color:var(--muted)">?</button>
     <button class="icon-btn primary" id="btn-load" title="Carregar JSONs">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -642,6 +782,15 @@ html, body {
   </div>
 </div>
 <input type="file" id="file-input" accept=".json" multiple/>
+
+<!-- METADATA DRAWER -->
+<div class="meta-drawer" id="meta-drawer">
+  <div class="meta-drawer-header">
+    <div class="meta-drawer-title" id="meta-drawer-title">Metadados</div>
+    <button class="meta-drawer-close" id="meta-drawer-close">✕</button>
+  </div>
+  <div class="meta-drawer-body" id="meta-drawer-body"></div>
+</div>
 
 <!-- LAYER PILL -->
 <div class="layer-pill">
@@ -1117,11 +1266,18 @@ function buildPointListHTML(points) {
 
   // Renderiza TODOS os pontos — a visibilidade é controlada por applyListFilter()
   const rows = sorted.map(pt => {
-    const ptype = primaryType(pt);
-    const icons = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
+    const ptype      = primaryType(pt);
+    const icons      = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
     const layersAttr = [...pt.layers].join(',');
+    // serializa o ponto para o drawer de metadados
+    const ptJson     = encodeURIComponent(JSON.stringify({
+      id: pt.id, name: pt.name, lat: pt.lat, lng: pt.lng, metadata: pt.metadata || {}
+    }));
     return `
-    <div class="point-entry ${ptype}" data-layers="${layersAttr}" onclick="flyTo(${pt.lat},${pt.lng})">
+    <div class="point-entry ${ptype}" data-layers="${layersAttr}"
+         onclick="flyTo(${pt.lat},${pt.lng})"
+         ontouchend="this._moved||(openPointMeta('${ptJson}'),flyTo(${pt.lat},${pt.lng}));this._moved=false"
+         onmouseup="openPointMeta('${ptJson}')">
       <div class="pe-icon ${ptype}">${icons[ptype]||'●'}</div>
       <div class="pe-body">
         <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
@@ -1378,6 +1534,100 @@ document.querySelectorAll('.layer-dot-btn').forEach(btn => {
     }
   });
 });
+
+// ══════════════════════════════════════════════
+//  METADATA DRAWER
+// ══════════════════════════════════════════════
+const metaDrawer      = document.getElementById('meta-drawer');
+const metaDrawerTitle = document.getElementById('meta-drawer-title');
+const metaDrawerBody  = document.getElementById('meta-drawer-body');
+
+function buildMetaTree(sections) {
+  // sections: [ { title, meta: {key:val} | null, extra: [{label, value}] } ]
+  return sections.map(sec => {
+    const entries = sec.meta ? Object.entries(sec.meta) : [];
+    const extraRows = (sec.extra || []).map(e =>
+      `<div class="meta-node">
+        <span class="meta-key">${e.label}</span>
+        <span class="meta-colon">:</span>
+        <span class="meta-value">${e.value}</span>
+      </div>`
+    ).join('');
+    const metaRows = entries.length
+      ? entries.map(([k, v]) =>
+          `<div class="meta-node">
+            <span class="meta-key">${k}</span>
+            <span class="meta-colon">:</span>
+            <span class="meta-value">${v}</span>
+          </div>`
+        ).join('')
+      : `<div class="meta-empty">sem metadados</div>`;
+
+    return `<div class="meta-section">
+      <div class="meta-section-title">${sec.title}</div>
+      <div class="meta-tree">${extraRows}${metaRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function openMetaDrawer(title, sections) {
+  metaDrawerTitle.textContent = title;
+  metaDrawerBody.innerHTML    = buildMetaTree(sections);
+  metaDrawer.classList.add('open');
+}
+
+function closeMetaDrawer() {
+  metaDrawer.classList.remove('open');
+}
+
+document.getElementById('meta-drawer-close').addEventListener('click', closeMetaDrawer);
+
+// Botão META no topbar — abre metadados do step atual
+document.getElementById('btn-step-meta').addEventListener('click', () => {
+  if (currentIdx < 0) return;
+  const snap = snapshots[currentIdx];
+  const meta = snap.metadata || {};
+  openMetaDrawer(`Step #${currentIdx + 1} — ${snap.requestId}`, [
+    {
+      title: 'Identificação',
+      meta: null,
+      extra: [
+        { label: 'requestId', value: snap.requestId },
+        { label: 'timestamp', value: new Date(snap.timestamp).toLocaleString('pt-BR') },
+      ]
+    },
+    {
+      title: 'BoundingBox',
+      meta: null,
+      extra: [
+        { label: 'NE lat', value: snap.boundingBox.northEast.lat },
+        { label: 'NE lng', value: snap.boundingBox.northEast.lng },
+        { label: 'SW lat', value: snap.boundingBox.southWest.lat },
+        { label: 'SW lng', value: snap.boundingBox.southWest.lng },
+      ]
+    },
+    { title: 'Metadata', meta }
+  ]);
+});
+
+// Tocar num ponto da lista abre os metadados do ponto
+window.openPointMeta = function(ptJson) {
+  const pt = JSON.parse(decodeURIComponent(ptJson));
+  const meta = pt.metadata || {};
+  openMetaDrawer(pt.name || pt.id, [
+    {
+      title: 'Identificação',
+      meta: null,
+      extra: [
+        { label: 'id',   value: pt.id },
+        { label: 'name', value: pt.name || '—' },
+        { label: 'lat',  value: pt.lat  != null ? pt.lat.toFixed(6)  : '—' },
+        { label: 'lng',  value: pt.lng  != null ? pt.lng.toFixed(6)  : '—' },
+      ]
+    },
+    { title: 'Metadata', meta }
+  ]);
+};
 
 // ══════════════════════════════════════════════
 //  LEGEND PANEL
