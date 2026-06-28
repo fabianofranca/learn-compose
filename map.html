@@ -1727,6 +1727,10 @@ function buildTimeline() {
 // ══════════════════════════════════════════════
 function loadSnapshots(list) {
   snapshots = list.sort((a,b) => new Date(a.timestamp)-new Date(b.timestamp));
+  // Persiste no sessionStorage para sobreviver a reloads
+  try {
+    sessionStorage.setItem('map-audit-snapshots', JSON.stringify(snapshots));
+  } catch(e) { /* quota exceeded — ignora */ }
   buildTimeline();
   document.getElementById('empty-overlay').classList.add('hidden');
   renderSnapshot(0);
@@ -2127,7 +2131,29 @@ document.addEventListener('click', e => {
 // ══════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════
-buildTimeline();
+
+// Redimensiona o mapa quando a janela muda de tamanho (ex: desktop ↔ mobile)
+window.addEventListener('resize', () => {
+  map.invalidateSize();
+  if (currentIdx >= 0) renderSnapshot(currentIdx);
+});
+
+// Restaura snapshots do sessionStorage se existirem (sobrevive a reloads)
+try {
+  const saved = sessionStorage.getItem('map-audit-snapshots');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (Array.isArray(parsed) && parsed.length) {
+      loadSnapshots(parsed);
+    } else {
+      buildTimeline();
+    }
+  } else {
+    buildTimeline();
+  }
+} catch(e) {
+  buildTimeline();
+}
 </script>
 </body>
 </html>
