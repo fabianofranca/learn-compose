@@ -924,9 +924,12 @@ function renderSnapshot(idx) {
   }
 
   // Markers
+  const sourceIds = new Set((snap.source?.points||[]).map(p=>p.id));
   const vis = { added:layerVisible.added, removed:layerVisible.removed, kept:layerVisible.kept, 'source-only':layerVisible.source };
   points.forEach(pt => {
-    if (!vis[pt.type] || pt.lat==null || pt.lng==null) return;
+    const inSource = sourceIds.has(pt.id);
+    const visible  = inSource ? (layerVisible.source || vis[pt.type]) : vis[pt.type];
+    if (!visible || pt.lat==null || pt.lng==null) return;
     const m = L.marker([pt.lat,pt.lng], {icon:makeIcon(pt.type)})
       .bindPopup(`<div class="popup-id">${pt.id}</div>
         <div class="popup-name">${pt.name||'(sem nome)'}</div>
