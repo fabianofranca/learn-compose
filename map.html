@@ -1071,21 +1071,16 @@ function layerBadges(pt) {
 function buildPointListHTML(points) {
   if (!points.length) return '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos.</div>';
   const order = ['added','removed','orphan','ignored','kept','source'];
-  // Visibilidade sincronizada com o mapa via resolveRenderType
-  function isVisible(pt) {
-    return resolveRenderType(pt.layers) !== null;
-  }
   const sorted = [...points]
     .sort((a,b) => order.indexOf(primaryType(a)) - order.indexOf(primaryType(b)));
 
-  const visible_items = sorted.filter(pt => isVisible(pt));
-  const hidden_count  = sorted.length - visible_items.length;
-
-  const rows = visible_items.map(pt => {
+  // Renderiza TODOS os pontos — a visibilidade é controlada por applyListFilter()
+  const rows = sorted.map(pt => {
     const ptype = primaryType(pt);
     const icons = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
+    const layersAttr = [...pt.layers].join(',');
     return `
-    <div class="point-entry ${ptype}" onclick="flyTo(${pt.lat},${pt.lng})">
+    <div class="point-entry ${ptype}" data-layers="${layersAttr}" onclick="flyTo(${pt.lat},${pt.lng})">
       <div class="pe-icon ${ptype}">${icons[ptype]||'●'}</div>
       <div class="pe-body">
         <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
@@ -1095,11 +1090,36 @@ function buildPointListHTML(points) {
     </div>`;
   }).join('');
 
-  const hidden_note = hidden_count > 0
-    ? `<div style="padding:8px 16px;color:var(--muted2);font-size:.72rem;font-family:var(--mono)">+ ${hidden_count} ponto${hidden_count>1?'s':''} oculto${hidden_count>1?'s':''} pelos filtros</div>`
-    : '';
+  // Placeholder para nota de itens ocultos — atualizado por applyListFilter()
+  return rows + '<div class="hidden-note" style="display:none;padding:8px 16px;color:var(--muted2);font-size:.72rem;font-family:var(--mono)"></div>';
+}
 
-  return rows + hidden_note || '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos visíveis.</div>';
+// Aplica o filtro de toggles diretamente no DOM das listas
+function applyListFilter() {
+  ['mobile-point-list', 'desktop-point-list'].forEach(listId => {
+    const list = document.getElementById(listId);
+    if (!list) return;
+    const entries = list.querySelectorAll('.point-entry[data-layers]');
+    let hiddenCount = 0;
+
+    entries.forEach(el => {
+      const layers = new Set(el.dataset.layers.split(','));
+      const visible = resolveRenderType(layers) !== null;
+      el.style.display = visible ? '' : 'none';
+      if (!visible) hiddenCount++;
+    });
+
+    // Atualiza a nota de ocultos
+    const note = list.querySelector('.hidden-note');
+    if (note) {
+      if (hiddenCount > 0) {
+        note.textContent = `+ ${hiddenCount} ponto${hiddenCount>1?'s':''} oculto${hiddenCount>1?'s':''} pelos filtros`;
+        note.style.display = '';
+      } else {
+        note.style.display = 'none';
+      }
+    }
+  });
 }
 
 function countPoints(points, snap) {
@@ -1121,6 +1141,7 @@ function renderPointList(points, snap) {
 
   // mobile sheet
   document.getElementById('mobile-point-list').innerHTML = html;
+  applyListFilter();
   const chipAlpha = l => layerVisible[l] ? '' : 'opacity:.3;';
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-chip added"   style="${chipAlpha('added')}">▲${c.added}</div>
@@ -1283,7 +1304,12 @@ document.querySelectorAll('.layer-dot-btn').forEach(btn => {
     const l = btn.dataset.layer;
     layerVisible[l] = !layerVisible[l];
     btn.classList.toggle('off', !layerVisible[l]);
-    if (currentIdx>=0) renderSnapshot(currentIdx);
+    if (currentIdx >= 0) {
+      // Mapa: re-renderiza marcadores
+      renderSnapshot(currentIdx);
+      // Lista: filtra DOM diretamente sem recriar HTML
+      applyListFilter();
+    }
   });
 });
 
