@@ -146,12 +146,37 @@ html, body {
 .nav-btn:active { background: var(--surf2); }
 .nav-btn:disabled { opacity: .25; pointer-events: none; }
 
-/* Zoom control: acima das setas de navegação no mobile */
+/* Zoom control — dark theme + posição correta */
+.leaflet-control-zoom {
+  border: 1px solid var(--border2) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0,0,0,.5) !important;
+}
+.leaflet-control-zoom a {
+  background: var(--surf) !important;
+  color: var(--text) !important;
+  border-bottom: 1px solid var(--border2) !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 1.1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.leaflet-control-zoom a:hover {
+  background: var(--surf2) !important;
+  color: var(--source) !important;
+}
+.leaflet-control-zoom-out {
+  border-bottom: none !important;
+}
+/* Posição mobile: canto inferior direito acima das setas */
 .leaflet-bottom.leaflet-right {
-  bottom: calc(var(--tl-h) + var(--sheet-peek) + 64px) !important;
+  bottom: calc(var(--tl-h) + var(--sheet-peek) + 60px) !important;
   right: 12px !important;
 }
-
 @media (min-width: 768px) {
   .leaflet-bottom.leaflet-right {
     bottom: calc(var(--tl-h) + 16px) !important;
