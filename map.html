@@ -83,6 +83,7 @@ html, body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: none; /* oculto no mobile, visível no desktop */
 }
 
 .topbar-actions {
@@ -986,6 +987,7 @@ html, body {
 
   .timeline-bar { padding: 0 14px; }
   .tl-node      { min-width: 58px; }
+  .topbar-ts    { display: block; }
 
   .legend-panel { right: 14px; }
 }
@@ -1199,8 +1201,10 @@ html, body {
   <div class="sheet-handle-area" id="sheet-handle">
     <div class="sheet-handle"></div>
     <div class="sheet-peek-row">
-      <div class="sheet-peek-title" id="sheet-title">Pontos do snapshot</div>
-      <div id="sheet-ts" style="font-size:.65rem;color:var(--muted);font-family:var(--mono);white-space:nowrap;flex-shrink:0"></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+        <div class="sheet-peek-title" id="sheet-title">Pontos do snapshot</div>
+        <div id="sheet-ts" style="font-size:.65rem;color:var(--muted);font-family:var(--mono)"></div>
+      </div>
       <div class="stats-row" id="stats-row"></div>
     </div>
   </div>
