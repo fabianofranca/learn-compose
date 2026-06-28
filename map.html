@@ -1210,7 +1210,6 @@ function renderPointList(points, snap) {
 window.flyTo = function(lat, lng) {
   if (lat==null||lng==null) return;
   map.flyTo([lat,lng], 16, {duration:.6});
-  // collapse sheet a bit on mobile
   if (window.innerWidth < 768) setSheet('peek');
 };
 
@@ -1281,46 +1280,38 @@ function handleFiles(files) {
 }
 
 // ══════════════════════════════════════════════
-//  BOTTOM SHEET DRAG (mobile)
+//  BOTTOM SHEET (mobile)
 // ══════════════════════════════════════════════
 const sheet = document.getElementById('sheet');
-let sheetState = 'peek'; // peek | mid | open
+let sheetState = 'peek';
 
 function setSheet(state) {
   sheetState = state;
-  sheet.className = `sheet ${state==='peek'?'':state==='mid'?'mid':'open'}`;
+  sheet.classList.remove('mid', 'open');
+  if (state === 'mid')  sheet.classList.add('mid');
+  if (state === 'open') sheet.classList.add('open');
 }
 
-let dragStartY = 0, dragStartState = 'peek', isDragging = false;
+// Swipe no handle: detecta direção e cicla entre estados
+let touchStartY = 0;
 
 document.getElementById('sheet-handle').addEventListener('touchstart', e => {
-  isDragging = true;
-  dragStartY = e.touches[0].clientY;
-  dragStartState = sheetState;
-  sheet.style.transition = 'none';
-}, {passive:true});
+  touchStartY = e.touches[0].clientY;
+}, {passive: true});
 
-document.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  const dy = e.touches[0].clientY - dragStartY;
-  // up = open, down = close
-}, {passive:true});
-
-document.addEventListener('touchend', e => {
-  if (!isDragging) return;
-  isDragging = false;
-  sheet.style.transition = '';
-  const dy = e.changedTouches[0].clientY - dragStartY;
-  if (dy < -60) {
+document.getElementById('sheet-handle').addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dy) < 10) {
+    // tap — cicla para frente
+    setSheet(sheetState === 'peek' ? 'mid' : sheetState === 'mid' ? 'open' : 'peek');
+  } else if (dy < -30) {
+    // swipe up — abre mais
     setSheet(sheetState === 'peek' ? 'mid' : 'open');
-  } else if (dy > 60) {
+  } else if (dy > 30) {
+    // swipe down — fecha mais
     setSheet(sheetState === 'open' ? 'mid' : 'peek');
   }
-});
-
-document.getElementById('sheet-handle').addEventListener('click', () => {
-  setSheet(sheetState === 'peek' ? 'mid' : sheetState === 'mid' ? 'open' : 'peek');
-});
+}, {passive: true});
 
 // ══════════════════════════════════════════════
 //  EVENTS
