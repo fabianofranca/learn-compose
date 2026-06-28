@@ -29,7 +29,7 @@
   --tl-h: 80px;
   --sheet-peek: 72px;
   --sheet-mid: 52vh;
-  --sheet-full: 92vh;
+  --sheet-full: calc(100vh - var(--topbar-h) - var(--tl-h));
   --radius: 14px;
 }
 
@@ -250,6 +250,22 @@ html, body {
   flex-shrink: 0;
   margin: 0 -2px;
   margin-bottom: 20px;
+}
+
+/* ══ BOTTOM SHEET OVERLAY ══ */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  bottom: var(--tl-h);
+  background: rgba(0,0,0,.5);
+  z-index: 459;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
+}
+.sheet-overlay.visible {
+  opacity: 1;
+  pointer-events: all;
 }
 
 /* ══ BOTTOM SHEET ══ */
@@ -776,6 +792,9 @@ html, body {
   </div>
 </div>
 
+<!-- SHEET OVERLAY -->
+<div class="sheet-overlay" id="sheet-overlay"></div>
+
 <!-- MOBILE BOTTOM SHEET -->
 <div class="sheet" id="sheet">
   <div class="sheet-handle-area" id="sheet-handle">
@@ -1285,12 +1304,19 @@ function handleFiles(files) {
 const sheet = document.getElementById('sheet');
 let sheetState = 'peek';
 
+const sheetOverlay = document.getElementById('sheet-overlay');
+
 function setSheet(state) {
   sheetState = state;
   sheet.classList.remove('mid', 'open');
   if (state === 'mid')  sheet.classList.add('mid');
   if (state === 'open') sheet.classList.add('open');
+  // Overlay visível apenas quando sheet está mid ou open
+  sheetOverlay.classList.toggle('visible', state !== 'peek');
 }
+
+// Toque no overlay fecha a sheet
+sheetOverlay.addEventListener('click', () => setSheet('peek'));
 
 // Swipe no handle: detecta direção e cicla entre estados
 let touchStartY = 0;
