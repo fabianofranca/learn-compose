@@ -172,31 +172,35 @@ html, body {
 .leaflet-control-zoom-out {
   border-bottom: none !important;
 }
-/* Zoom: canto inferior direito acima das setas, attribution abaixo dele */
+/* Attribution — dark theme em todos os layouts */
+.leaflet-control-attribution {
+  font-size: .55rem !important;
+  background: rgba(13,15,20,.75) !important;
+  color: var(--muted) !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+}
+.leaflet-control-attribution a { color: var(--source) !important; }
+
+/* Mobile: zoom acima das setas, attribution oculto */
 .leaflet-bottom.leaflet-right {
   bottom: calc(var(--tl-h) + var(--sheet-peek) + 56px) !important;
   right: 12px !important;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: flex-end;
-  gap: 6px;
 }
-/* Attribution no mobile: pequeno e embaixo do zoom */
-.leaflet-bottom.leaflet-right .leaflet-control-attribution {
-  font-size: .55rem !important;
-  background: rgba(13,15,20,.7) !important;
-  color: var(--muted) !important;
-  border-radius: 4px !important;
-  padding: 2px 5px !important;
+.leaflet-bottom.leaflet-left {
+  display: none !important;
 }
-.leaflet-bottom.leaflet-right .leaflet-control-attribution a {
-  color: var(--source) !important;
-}
+
+/* Desktop: tudo visível */
 @media (min-width: 768px) {
   .leaflet-bottom.leaflet-right {
     bottom: calc(var(--tl-h) + 12px) !important;
     right: 12px !important;
-    flex-direction: column;
+  }
+  .leaflet-bottom.leaflet-left {
+    display: block !important;
+    bottom: calc(var(--tl-h) + 4px) !important;
+    left: 8px !important;
   }
 }
 
@@ -1116,11 +1120,14 @@ html, body {
 // ══════════════════════════════════════════════
 //  MAP
 // ══════════════════════════════════════════════
-const map = L.map('map', { zoomControl: false }).setView([-19.9167, -43.9345], 13);
+const map = L.map('map', { zoomControl: false, attributionControl: false }).setView([-19.9167, -43.9345], 13);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+  maxZoom: 19
 }).addTo(map);
 L.control.zoom({ position: 'bottomright' }).addTo(map);
+L.control.attribution({ position: 'bottomleft', prefix: false })
+  .addAttribution('© <a href="https://openstreetmap.org">OSM</a> © <a href="https://carto.com">CARTO</a>')
+  .addTo(map);
 
 // ══════════════════════════════════════════════
 //  STATE
