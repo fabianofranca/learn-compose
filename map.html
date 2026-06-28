@@ -1513,10 +1513,12 @@ function renderSnapshot(idx) {
       const refLatSpan = Math.abs(refBB.northEast.lat - refBB.southWest.lat);
       const curLatSpan = Math.abs(ne.lat - sw.lat);
       const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
+      const isMobile2 = window.innerWidth < 768;
+      const pad2 = isMobile2 ? [80, 20] : [40, 40];
       const baseZoom   = map.getBoundsZoom(
         [[refBB.southWest.lat, refBB.southWest.lng],
          [refBB.northEast.lat, refBB.northEast.lng]],
-        false, [0, 0]
+        false, pad2
       );
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
@@ -2048,10 +2050,12 @@ function startAnim() {
 
   // Calcular e fixar o zoom base UMA ÚNICA VEZ antes da animação começar
   const refBB = snapshots[0].boundingBox;
+  const isMobile = window.innerWidth < 768;
+  const pad = isMobile ? [80, 20] : [40, 40];
   animBaseZoom = map.getBoundsZoom(
     [[refBB.southWest.lat, refBB.southWest.lng],
      [refBB.northEast.lat, refBB.northEast.lng]],
-    false, [0, 0]
+    false, pad
   );
 
   // DEBUG: mostrar info do container e zoom na topbar
