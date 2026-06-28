@@ -123,7 +123,7 @@ html, body {
   position: fixed;
   bottom: calc(var(--tl-h) + var(--sheet-peek) + 8px);
   left: 0; right: 0;
-  display: flex;
+  display: none;
   justify-content: space-between;
   padding: 0 12px;
   z-index: 400;
@@ -1200,6 +1200,7 @@ html, body {
     <div class="sheet-handle"></div>
     <div class="sheet-peek-row">
       <div class="sheet-peek-title" id="sheet-title">Pontos do snapshot</div>
+      <div id="sheet-ts" style="font-size:.65rem;color:var(--muted);font-family:var(--mono);white-space:nowrap;flex-shrink:0"></div>
       <div class="stats-row" id="stats-row"></div>
     </div>
   </div>
@@ -1470,7 +1471,10 @@ function renderSnapshot(idx) {
   // Topbar
   const ts = new Date(snap.timestamp);
   document.getElementById('snap-counter').innerHTML = `<b>${idx+1}</b>/<b>${snapshots.length}</b>`;
-  document.getElementById('snap-ts').textContent = ts.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'medium'});
+  const tsStr = ts.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'medium'});
+  document.getElementById('snap-ts').textContent = tsStr;
+  const sheetTs = document.getElementById('sheet-ts');
+  if (sheetTs) sheetTs.textContent = tsStr;
 
   // Nav buttons
   document.getElementById('btn-prev').disabled       = idx===0;
