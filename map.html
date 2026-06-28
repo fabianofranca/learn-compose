@@ -1494,32 +1494,34 @@ function renderSnapshot(idx) {
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
 
-      // Calcular zoom manualmente usando a projeção do Leaflet
-      // Independente do tamanho real do container (que varia no mobile pela bottom sheet)
-      // Usamos o tamanho do bbox de referência em pixels para normalizar
-      //
-      // Fórmula: cada nível de zoom dobra o número de pixels por grau
-      // Se o bbox encolheu pela metade em graus → precisa de +1 zoom para ocupar o mesmo espaço
-
-      // Step de referência: bbox do primeiro snapshot
-      const refBB     = snapshots[0].boundingBox;
+      // Zoom fixado no startAnim + delta proporcional ao encolhimento do bbox
+      // animBaseZoom foi calculado com o container em tamanho estável (antes de resize mobile)
+      const refBB      = snapshots[0].boundingBox;
       const refLatSpan = Math.abs(refBB.northEast.lat - refBB.southWest.lat);
       const curLatSpan = Math.abs(ne.lat - sw.lat);
+      const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
+      const targetZoom = (animBaseZoom ?? map.getBoundsZoom(
+        [[refBB.southWest.lat, refBB.southWest.lng],
+         [refBB.northEast.lat, refBB.northEast.lng]],
+        false, [0, 0]
+      )) + zoomDelta;
 
-      // Zoom base: o que o Leaflet calcularia para o bbox de referência
+      map.setView([centerLat, centerLng], targetZoom, { animate: false });
+    } else {
+      // Navegação manual — mesma lógica: zoom relativo ao bbox de referência
+      // garante que o bbox não encolhe no mobile
+      const refBB      = snapshots[0].boundingBox;
+      const refLatSpan = Math.abs(refBB.northEast.lat - refBB.southWest.lat);
+      const curLatSpan = Math.abs(ne.lat - sw.lat);
+      const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
       const baseZoom   = map.getBoundsZoom(
         [[refBB.southWest.lat, refBB.southWest.lng],
          [refBB.northEast.lat, refBB.northEast.lng]],
         false, [0, 0]
       );
-
-      // Delta: quanto o bbox encolheu em escala logarítmica
-      const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
-      const targetZoom = baseZoom + zoomDelta;
-
-      map.setView([centerLat, centerLng], targetZoom, { animate: false });
-    } else {
-      map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
+      const centerLat = (ne.lat + sw.lat) / 2;
+      const centerLng = (ne.lng + sw.lng) / 2;
+      map.setView([centerLat, centerLng], baseZoom + zoomDelta, { animate: true });
     }
   }
 }
@@ -1972,6 +1974,7 @@ let animPlaying  = false;
 let animProgress = 0;
 let animRafId    = null;
 let animStart    = null;
+let animBaseZoom = null;   // zoom fixado ao iniciar a animação
 
 const btnPlay       = document.getElementById('btn-play');
 const speedPanel    = document.getElementById('speed-panel');
@@ -2030,6 +2033,16 @@ function tickProgress(now) {
 
 function startAnim() {
   if (!snapshots.length) return;
+
+  // Calcular e fixar o zoom base UMA ÚNICA VEZ antes da animação começar
+  // O container tem tamanho estável neste momento (antes de qualquer resize)
+  const refBB = snapshots[0].boundingBox;
+  animBaseZoom = map.getBoundsZoom(
+    [[refBB.southWest.lat, refBB.southWest.lng],
+     [refBB.northEast.lat, refBB.northEast.lng]],
+    false, [0, 0]
+  );
+
   animPlaying = true;
   btnPlay.textContent = '⏹ Stop';
   btnPlay.classList.add('playing');
@@ -2039,7 +2052,8 @@ function startAnim() {
 }
 
 function stopAnim() {
-  animPlaying = false;
+  animPlaying  = false;
+  animBaseZoom = null;
   cancelAnimationFrame(animRafId);
   progressBar.style.width = '0%';
   btnPlay.textContent = '▶ Play';
