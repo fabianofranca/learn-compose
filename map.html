@@ -21,6 +21,8 @@
   --kept:    #64748b;
   --source:  #3b82f6;
   --bbox:    #facc15;
+  --orphan:  #f97316;
+  --ignored: #a855f7;
   --mono: 'JetBrains Mono','Fira Mono',monospace;
   --sans: 'Inter',system-ui,sans-serif;
   --topbar-h: 52px;
@@ -180,6 +182,8 @@ html, body {
 .layer-dot-btn[data-layer="kept"]    { border-color: var(--kept);    color: var(--kept); }
 .layer-dot-btn[data-layer="source"]  { border-color: var(--source);  color: var(--source); }
 .layer-dot-btn[data-layer="bbox"]    { border-color: var(--bbox);    color: var(--bbox); }
+.layer-dot-btn[data-layer="orphan"]  { border-color: var(--orphan);  color: var(--orphan); }
+.layer-dot-btn[data-layer="ignored"] { border-color: var(--ignored); color: var(--ignored); }
 
 /* ══ TIMELINE BAR ══ */
 .timeline-bar {
@@ -318,6 +322,8 @@ html, body {
 .stat-chip.removed { color: var(--removed); border-color: #3d1515; background: #240d0d; }
 .stat-chip.kept    { color: var(--kept);    border-color: #1e2838; background: #131a24; }
 .stat-chip.source  { color: var(--source);  border-color: #1a2540; background: #0d1a30; }
+.stat-chip.orphan  { color: var(--orphan);  border-color: #2a1500; background: #1a0d00; }
+.stat-chip.ignored { color: var(--ignored); border-color: #200d30; background: #140820; }
 
 .sheet-divider {
   height: 1px;
@@ -388,6 +394,10 @@ html, body {
 .pe-tag.removed { background: #240d0d; color: var(--removed); }
 .pe-tag.kept    { background: #131a24; color: var(--kept); }
 .pe-tag.source-only { background: #0d1a30; color: var(--source); }
+.pe-icon.orphan  { background: #2a1500; color: var(--orphan); }
+.pe-icon.ignored { background: #200d30; color: var(--ignored); }
+.pe-tag.orphan   { background: #2a1500; color: var(--orphan); }
+.pe-tag.ignored  { background: #200d30; color: var(--ignored); }
 
 /* ══ EMPTY STATE ══ */
 .empty-overlay {
@@ -622,6 +632,8 @@ html, body {
   <button class="layer-dot-btn" data-layer="kept"    title="Mantidos">●</button>
   <button class="layer-dot-btn" data-layer="source"  title="Source">◉</button>
   <button class="layer-dot-btn" data-layer="bbox"    title="BBox">⬜</button>
+  <button class="layer-dot-btn" data-layer="orphan"  title="Fantasma (previous sem diff/source)">👻</button>
+  <button class="layer-dot-btn" data-layer="ignored" title="Ignorado (source sem diff/previous)">⚠️</button>
 </div>
 
 <!-- LEGEND PANEL -->
@@ -685,6 +697,36 @@ html, body {
   </div>
 
   <div class="legend-section">
+    <div class="legend-section-title">Alertas de integridade</div>
+
+    <div class="legend-row">
+      <div class="legend-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="13" fill="#2a1500" stroke="#f97316" stroke-width="1.5"/>
+          <polygon points="14,5 23,14 14,23 5,14" fill="#f97316"/>
+        </svg>
+      </div>
+      <div class="legend-text">
+        <div class="legend-label" style="color:#f97316">◆ Fantasma</div>
+        <div class="legend-desc">Estava em <code>previous</code>, não aparece no <code>diff</code> nem na <code>source</code> — pin perdido no app</div>
+      </div>
+    </div>
+
+    <div class="legend-row">
+      <div class="legend-icon">
+        <svg width="28" height="28" viewBox="0 0 28 28">
+          <circle cx="14" cy="14" r="13" fill="#200d30" stroke="#a855f7" stroke-width="1.5"/>
+          <polygon points="14,5 23,14 14,23 5,14" fill="#a855f7"/>
+        </svg>
+      </div>
+      <div class="legend-text">
+        <div class="legend-label" style="color:#a855f7">◆ Ignorado</div>
+        <div class="legend-desc">Veio da <code>source</code>, não estava no <code>previous</code> e não entrou no <code>diff</code> — app ignorou o retorno</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend-section">
     <div class="legend-section-title">Área do mapa</div>
     <div class="legend-row">
       <div class="legend-bbox-swatch"></div>
@@ -729,6 +771,8 @@ html, body {
     <div class="ds-stat"><div class="ds-stat-label">Removidos</div>  <div class="ds-stat-value removed" id="ds-removed">0</div></div>
     <div class="ds-stat"><div class="ds-stat-label">Mantidos</div>   <div class="ds-stat-value kept"    id="ds-kept">0</div></div>
     <div class="ds-stat"><div class="ds-stat-label">Source total</div><div class="ds-stat-value source" id="ds-source">0</div></div>
+    <div class="ds-stat"><div class="ds-stat-label">Fantasmas</div>  <div class="ds-stat-value" style="color:var(--orphan)"  id="ds-orphan">0</div></div>
+    <div class="ds-stat"><div class="ds-stat-label">Ignorados</div>  <div class="ds-stat-value" style="color:var(--ignored)" id="ds-ignored">0</div></div>
   </div>
 </div>
 
@@ -775,7 +819,7 @@ let snapshots    = [];
 let currentIdx   = -1;
 let activeMarkers = [];
 let bboxLayer    = null;
-const layerVisible = { added:true, removed:true, kept:true, source:true, bbox:true };
+const layerVisible = { added:true, removed:true, kept:true, source:true, bbox:true, orphan:true, ignored:true };
 
 // ══════════════════════════════════════════════
 //  SAMPLE DATA
@@ -845,15 +889,18 @@ const SAMPLE = [
 // ══════════════════════════════════════════════
 function makeIcon(type) {
   const C = {
-    added:      { c:'#22c55e', bg:'#0d2518', shape:'up'   },
-    removed:    { c:'#ef4444', bg:'#240d0d', shape:'down' },
-    kept:       { c:'#64748b', bg:'#131a24', shape:'dot'  },
-    'source-only':{ c:'#3b82f6', bg:'#0d1a30', shape:'dot'  }
+    added:      { c:'#22c55e', bg:'#0d2518', shape:'up'     },
+    removed:    { c:'#ef4444', bg:'#240d0d', shape:'down'   },
+    kept:       { c:'#64748b', bg:'#131a24', shape:'dot'    },
+    source:     { c:'#3b82f6', bg:'#0d1a30', shape:'dot'    },
+    orphan:     { c:'#f97316', bg:'#2a1500', shape:'diamond' },
+    ignored:    { c:'#a855f7', bg:'#200d30', shape:'diamond' },
   }[type] || { c:'#888', bg:'#222', shape:'dot' };
 
   let inner = '';
-  if (C.shape === 'up')   inner = `<polygon points="14,6 22,22 6,22" fill="${C.c}"/>`;
-  else if (C.shape === 'down') inner = `<polygon points="6,6 22,6 14,22" fill="${C.c}"/>`;
+  if (C.shape === 'up')      inner = `<polygon points="14,6 22,22 6,22" fill="${C.c}"/>`;
+  else if (C.shape === 'down')    inner = `<polygon points="6,6 22,6 14,22" fill="${C.c}"/>`;
+  else if (C.shape === 'diamond') inner = `<polygon points="14,5 23,14 14,23 5,14" fill="${C.c}"/>`;
   else inner = `<circle cx="14" cy="14" r="6" fill="${C.c}"/>`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">
@@ -863,43 +910,76 @@ function makeIcon(type) {
   return L.divIcon({ html:svg, className:'', iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-16] });
 }
 
-const LABELS = { added:'▲ Adicionado', removed:'▼ Removido', kept:'● Mantido', 'source-only':'◉ Source' };
-const TAGS   = { added:'ADD', removed:'REM', kept:'OK', 'source-only':'SRC' };
+const LABELS = { added:'▲ Adicionado', removed:'▼ Removido', kept:'● Mantido', source:'◉ Source', orphan:'◆ Fantasma', ignored:'◆ Ignorado' };
+const TAGS   = { added:'ADD', removed:'REM', kept:'OK', source:'SRC', orphan:'FAN', ignored:'IGN' };
 
 // ══════════════════════════════════════════════
 //  CLASSIFY
+//
+//  Cada ponto retornado carrega um Set "layers" indicando
+//  em quais listas ele aparece de forma independente:
+//    added   → está em diff.add
+//    removed → está em diff.remove
+//    kept    → estava em previous e NÃO foi mencionado no diff
+//              (o app não precisou buscar da fonte — otimização)
+//    source  → está em source.points (independente do diff)
+//
+//  O render decide o ícone com base nos toggles ativos,
+//  sem nenhuma ligação implícita entre as listas.
 // ══════════════════════════════════════════════
 function classify(snap) {
-  const prevIds   = new Set((snap.previous?.points||[]).map(p=>p.id));
-  const sourceIds = new Set((snap.source?.points||[]).map(p=>p.id));
-  const addIds    = new Set((snap.diff?.add||[]).map(p=>p.id));
-  const removeIds = new Set((snap.diff?.remove||[]).map(p=>p.id));
+  const prevList   = snap.previous?.points || [];
+  const sourceList = snap.source?.points   || [];
+  const addList    = snap.diff?.add        || [];
+  const remList    = snap.diff?.remove     || [];
 
+  const prevIds   = new Set(prevList.map(p => p.id));
+  const sourceIds = new Set(sourceList.map(p => p.id));
+  const addIds    = new Set(addList.map(p => p.id));
+  const removeIds = new Set(remList.map(p => p.id));
+
+  // Mapa id → dados do ponto (coords vêm de qualquer lista que os tenha)
   const byId = {};
-  const reg  = list => list.forEach(p => { byId[p.id] = {...(byId[p.id]||{}), ...p}; });
-  reg(snap.previous?.points||[]);
-  reg(snap.source?.points||[]);
-  reg(snap.diff?.add||[]);
+  const reg  = list => list.forEach(p => { byId[p.id] = { ...(byId[p.id] || {}), ...p }; });
+  reg(prevList);
+  reg(sourceList);
+  reg(addList);
+
+  // Coleta todos os ids únicos envolvidos neste snapshot
+  const allIds = new Set([...prevIds, ...sourceIds, ...addIds, ...removeIds]);
 
   const out = [];
-  addIds.forEach(id => { if (byId[id]) out.push({...byId[id], type:'added'}); });
-  removeIds.forEach(id => {
-    const base = (snap.previous?.points||[]).find(p=>p.id===id) || byId[id] || {id};
-    out.push({...base, type:'removed'});
-  });
-  prevIds.forEach(id => {
-    if (sourceIds.has(id) && !addIds.has(id) && !removeIds.has(id)) {
-      const pt = (snap.source?.points||[]).find(p=>p.id===id) || byId[id];
-      if (pt) out.push({...pt, type:'kept'});
-    }
-  });
-  sourceIds.forEach(id => {
-    if (!prevIds.has(id) && !addIds.has(id)) {
-      const pt = (snap.source?.points||[]).find(p=>p.id===id);
-      if (pt) out.push({...pt, type:'source-only'});
-    }
+  allIds.forEach(id => {
+    const layers = new Set();
+    if (addIds.has(id))    layers.add('added');
+    if (removeIds.has(id)) layers.add('removed');
+    if (sourceIds.has(id)) layers.add('source');
+    if (prevIds.has(id) && !addIds.has(id) && !removeIds.has(id))
+      layers.add('kept');
+    // Fantasma: estava no previous, não aparece no diff nem na source
+    if (prevIds.has(id) && !addIds.has(id) && !removeIds.has(id) && !sourceIds.has(id))
+      layers.add('orphan');
+    // Ignorado: veio da source, não estava no previous e não está no diff
+    if (sourceIds.has(id) && !prevIds.has(id) && !addIds.has(id) && !removeIds.has(id))
+      layers.add('ignored');
+
+    const base = byId[id] || remList.find(p => p.id === id) || { id };
+    out.push({ ...base, layers });
   });
   return out;
+}
+
+// Dada a lista de layers do ponto e os toggles ativos,
+// retorna o tipo a renderizar (com precedência: added > removed > kept > source)
+// ou null se nenhum toggle cobre este ponto.
+function resolveRenderType(layers) {
+  if (layers.has('added')   && layerVisible.added)   return 'added';
+  if (layers.has('removed') && layerVisible.removed)  return 'removed';
+  if (layers.has('orphan')  && layerVisible.orphan)   return 'orphan';
+  if (layers.has('ignored') && layerVisible.ignored)  return 'ignored';
+  if (layers.has('kept')    && layerVisible.kept)     return 'kept';
+  if (layers.has('source')  && layerVisible.source)   return 'source';
+  return null;
 }
 
 // ══════════════════════════════════════════════
@@ -924,17 +1004,15 @@ function renderSnapshot(idx) {
   }
 
   // Markers
-  const sourceIds = new Set((snap.source?.points||[]).map(p=>p.id));
-  const vis = { added:layerVisible.added, removed:layerVisible.removed, kept:layerVisible.kept, 'source-only':layerVisible.source };
   points.forEach(pt => {
-    const inSource = sourceIds.has(pt.id);
-    const visible  = inSource ? (layerVisible.source || vis[pt.type]) : vis[pt.type];
-    if (!visible || pt.lat==null || pt.lng==null) return;
-    const m = L.marker([pt.lat,pt.lng], {icon:makeIcon(pt.type)})
+    if (pt.lat==null || pt.lng==null) return;
+    const renderType = resolveRenderType(pt.layers);
+    if (!renderType) return;
+    const m = L.marker([pt.lat,pt.lng], {icon:makeIcon(renderType)})
       .bindPopup(`<div class="popup-id">${pt.id}</div>
         <div class="popup-name">${pt.name||'(sem nome)'}</div>
         <div class="popup-coords">${pt.lat?.toFixed(6)}, ${pt.lng?.toFixed(6)}</div>
-        <span class="popup-tag ${pt.type}">${LABELS[pt.type]}</span>`)
+        <span class="popup-tag ${renderType}">${LABELS[renderType]}</span>`)
       .addTo(map);
     activeMarkers.push(m);
   });
@@ -967,29 +1045,57 @@ function renderSnapshot(idx) {
 // ══════════════════════════════════════════════
 //  POINT LIST (shared HTML builder)
 // ══════════════════════════════════════════════
+
+// Retorna o tipo "primário" de um ponto para exibição na lista
+// (independente dos toggles — a lista sempre mostra tudo)
+function primaryType(pt) {
+  if (pt.layers.has('added'))   return 'added';
+  if (pt.layers.has('removed')) return 'removed';
+  if (pt.layers.has('orphan'))  return 'orphan';
+  if (pt.layers.has('ignored')) return 'ignored';
+  if (pt.layers.has('kept'))    return 'kept';
+  if (pt.layers.has('source'))  return 'source';
+  return 'source';
+}
+
+// Monta badges de todas as layers do ponto para expor anomalias
+function layerBadges(pt) {
+  const order = ['added','removed','orphan','ignored','kept','source'];
+  const icons  = { added:'▲', removed:'▼', kept:'●', source:'◉', orphan:'◆', ignored:'◆' };
+  return [...pt.layers]
+    .sort((a,b) => order.indexOf(a)-order.indexOf(b))
+    .map(l => `<span class="pe-tag ${l}">${icons[l]}</span>`)
+    .join('');
+}
+
 function buildPointListHTML(points) {
   if (!points.length) return '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos.</div>';
-  const order = ['added','removed','kept','source-only'];
+  const order = ['added','removed','orphan','ignored','kept','source'];
   return [...points]
-    .sort((a,b) => order.indexOf(a.type)-order.indexOf(b.type))
-    .map(pt => `
-      <div class="point-entry ${pt.type}" onclick="flyTo(${pt.lat},${pt.lng})">
-        <div class="pe-icon ${pt.type}">${{added:'▲',removed:'▼',kept:'●','source-only':'◉'}[pt.type]}</div>
+    .sort((a,b) => order.indexOf(primaryType(a)) - order.indexOf(primaryType(b)))
+    .map(pt => {
+      const ptype = primaryType(pt);
+      return `
+      <div class="point-entry ${ptype}" onclick="flyTo(${pt.lat},${pt.lng})">
+        <div class="pe-icon ${ptype}">${{added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'}[ptype]||'●'}</div>
         <div class="pe-body">
-          <div class="pe-name ${pt.type==='removed'?'struck':''}">${pt.name||'(sem nome)'}</div>
+          <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
           <div class="pe-id">${pt.id}</div>
         </div>
-        <span class="pe-tag ${pt.type}">${TAGS[pt.type]}</span>
-      </div>`)
+        <div style="display:flex;gap:3px;flex-shrink:0">${layerBadges(pt)}</div>
+      </div>`;
+    })
     .join('');
 }
 
 function countPoints(points, snap) {
-  const c = {added:0,removed:0,kept:0,source:(snap.source?.points||[]).length};
+  const c = { added:0, removed:0, kept:0, source:(snap.source?.points||[]).length, orphan:0, ignored:0 };
   points.forEach(p => {
-    if (p.type==='added') c.added++;
-    else if (p.type==='removed') c.removed++;
-    else if (p.type==='kept') c.kept++;
+    if (p.layers.has('added'))   c.added++;
+    if (p.layers.has('removed')) c.removed++;
+    if (p.layers.has('kept'))    c.kept++;
+    if (p.layers.has('orphan'))  c.orphan++;
+    if (p.layers.has('ignored')) c.ignored++;
   });
   return c;
 }
@@ -1006,6 +1112,8 @@ function renderPointList(points, snap) {
     <div class="stat-chip removed">▼${c.removed}</div>
     <div class="stat-chip kept">●${c.kept}</div>
     <div class="stat-chip source">◉${c.source}</div>
+    ${c.orphan  ? `<div class="stat-chip orphan">◆${c.orphan}</div>`  : ''}
+    ${c.ignored ? `<div class="stat-chip ignored">◆${c.ignored}</div>` : ''}
   `;
 
   // desktop sidebar
@@ -1015,6 +1123,8 @@ function renderPointList(points, snap) {
   document.getElementById('ds-removed').textContent = c.removed;
   document.getElementById('ds-kept').textContent    = c.kept;
   document.getElementById('ds-source').textContent  = c.source;
+  document.getElementById('ds-orphan').textContent  = c.orphan;
+  document.getElementById('ds-ignored').textContent = c.ignored;
   ds.style.display = 'grid';
 }
 
