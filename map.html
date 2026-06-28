@@ -1058,17 +1058,13 @@ function primaryType(pt) {
   return 'source';
 }
 
-// Monta badges de todas as layers do ponto; aplica alpha quando toggle desligado
+// Monta badges de todas as layers do ponto
 function layerBadges(pt) {
   const order = ['added','removed','orphan','ignored','kept','source'];
   const icons  = { added:'▲', removed:'▼', kept:'●', source:'◉', orphan:'◆', ignored:'◆' };
-  const layerToggle = { added:'added', removed:'removed', kept:'kept', source:'source', orphan:'orphan', ignored:'ignored' };
   return [...pt.layers]
     .sort((a,b) => order.indexOf(a)-order.indexOf(b))
-    .map(l => {
-      const dim = !layerVisible[layerToggle[l]];
-      return `<span class="pe-tag ${l}" style="${dim ? 'opacity:.25;' : ''}">${icons[l]}</span>`;
-    })
+    .map(l => `<span class="pe-tag ${l}">${icons[l]}</span>`)
     .join('');
 }
 
@@ -1080,23 +1076,31 @@ function buildPointListHTML(points) {
   function isVisible(pt) {
     return [...pt.layers].some(l => layerVisible[layerToggle[l]]);
   }
-  return [...points]
-    .sort((a,b) => order.indexOf(primaryType(a)) - order.indexOf(primaryType(b)))
-    .map(pt => {
-      const ptype   = primaryType(pt);
-      const visible = isVisible(pt);
-      const icons   = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
-      return `
-      <div class="point-entry ${ptype}" style="${visible ? '' : 'opacity:.25; pointer-events:none;'}" onclick="flyTo(${pt.lat},${pt.lng})">
-        <div class="pe-icon ${ptype}">${icons[ptype]||'●'}</div>
-        <div class="pe-body">
-          <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
-          <div class="pe-id">${pt.id}</div>
-        </div>
-        <div style="display:flex;gap:3px;flex-shrink:0">${layerBadges(pt)}</div>
-      </div>`;
-    })
-    .join('');
+  const sorted = [...points]
+    .sort((a,b) => order.indexOf(primaryType(a)) - order.indexOf(primaryType(b)));
+
+  const visible_items = sorted.filter(pt => isVisible(pt));
+  const hidden_count  = sorted.length - visible_items.length;
+
+  const rows = visible_items.map(pt => {
+    const ptype = primaryType(pt);
+    const icons = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
+    return `
+    <div class="point-entry ${ptype}" onclick="flyTo(${pt.lat},${pt.lng})">
+      <div class="pe-icon ${ptype}">${icons[ptype]||'●'}</div>
+      <div class="pe-body">
+        <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
+        <div class="pe-id">${pt.id}</div>
+      </div>
+      <div style="display:flex;gap:3px;flex-shrink:0">${layerBadges(pt)}</div>
+    </div>`;
+  }).join('');
+
+  const hidden_note = hidden_count > 0
+    ? `<div style="padding:8px 16px;color:var(--muted2);font-size:.72rem;font-family:var(--mono)">+ ${hidden_count} ponto${hidden_count>1?'s':''} oculto${hidden_count>1?'s':''} pelos filtros</div>`
+    : '';
+
+  return rows + hidden_note || '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos visíveis.</div>';
 }
 
 function countPoints(points, snap) {
@@ -1118,24 +1122,30 @@ function renderPointList(points, snap) {
 
   // mobile sheet
   document.getElementById('mobile-point-list').innerHTML = html;
+  const chipAlpha = l => layerVisible[l] ? '' : 'opacity:.3;';
   document.getElementById('stats-row').innerHTML = `
-    <div class="stat-chip added">▲${c.added}</div>
-    <div class="stat-chip removed">▼${c.removed}</div>
-    <div class="stat-chip kept">●${c.kept}</div>
-    <div class="stat-chip source">◉${c.source}</div>
-    ${c.orphan  ? `<div class="stat-chip orphan">◆${c.orphan}</div>`  : ''}
-    ${c.ignored ? `<div class="stat-chip ignored">◆${c.ignored}</div>` : ''}
+    <div class="stat-chip added"   style="${chipAlpha('added')}">▲${c.added}</div>
+    <div class="stat-chip removed" style="${chipAlpha('removed')}">▼${c.removed}</div>
+    <div class="stat-chip kept"    style="${chipAlpha('kept')}">●${c.kept}</div>
+    <div class="stat-chip source"  style="${chipAlpha('source')}">◉${c.source}</div>
+    ${c.orphan  ? `<div class="stat-chip orphan"  style="${chipAlpha('orphan')}">◆${c.orphan}</div>`  : ''}
+    ${c.ignored ? `<div class="stat-chip ignored" style="${chipAlpha('ignored')}">◆${c.ignored}</div>` : ''}
   `;
 
   // desktop sidebar
   document.getElementById('desktop-point-list').innerHTML = html;
   const ds = document.getElementById('desktop-stats');
-  document.getElementById('ds-added').textContent   = c.added;
-  document.getElementById('ds-removed').textContent = c.removed;
-  document.getElementById('ds-kept').textContent    = c.kept;
-  document.getElementById('ds-source').textContent  = c.source;
-  document.getElementById('ds-orphan').textContent  = c.orphan;
-  document.getElementById('ds-ignored').textContent = c.ignored;
+  const applyAlpha = (id, layer) => {
+    const el = document.getElementById(id);
+    el.textContent = c[layer] ?? 0;
+    el.style.opacity = layerVisible[layer] ? '1' : '0.3';
+  };
+  applyAlpha('ds-added',   'added');
+  applyAlpha('ds-removed', 'removed');
+  applyAlpha('ds-kept',    'kept');
+  applyAlpha('ds-source',  'source');
+  applyAlpha('ds-orphan',  'orphan');
+  applyAlpha('ds-ignored', 'ignored');
   ds.style.display = 'grid';
 }
 
