@@ -1476,10 +1476,18 @@ function renderSnapshot(idx) {
   document.getElementById('btn-prev-top').disabled = idx===0;
   document.getElementById('btn-next-top').disabled = idx===snapshots.length-1;
 
-  // Fit — desativado durante animação para manter viewport fixo
-  if (!animPlaying && snap.boundingBox) {
+  // Fit
+  if (snap.boundingBox) {
     const {northEast:ne,southWest:sw} = snap.boundingBox;
-    map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
+    if (animPlaying) {
+      // Modo animação: centraliza o mapa no centro do bbox sem animação
+      // O bbox fica "fixo na tela" e o mapa desliza por baixo
+      const centerLat = (ne.lat + sw.lat) / 2;
+      const centerLng = (ne.lng + sw.lng) / 2;
+      map.setView([centerLat, centerLng], map.getZoom(), { animate: false });
+    } else {
+      map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
+    }
   }
 }
 
