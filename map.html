@@ -29,7 +29,6 @@
   --tl-h: 80px;
   --sheet-peek: 72px;
   --sheet-mid: 52vh;
-  --sheet-full: calc(100vh - var(--topbar-h) - var(--tl-h));
   --radius: 14px;
 }
 
@@ -272,14 +271,16 @@ html, body {
 .sheet {
   position: fixed;
   left: 0; right: 0;
+  /* ancora no topo da área útil — nunca ultrapassa o topbar */
+  top: var(--topbar-h);
   bottom: var(--tl-h);
-  height: var(--sheet-full);
   background: var(--surf);
   border-top: 1px solid var(--border);
   border-radius: var(--radius) var(--radius) 0 0;
   z-index: 460;
   display: flex;
   flex-direction: column;
+  /* peek: só a alça visível no fundo */
   transform: translateY(calc(100% - var(--sheet-peek)));
   transition: transform .3s cubic-bezier(.32,.72,0,1);
   will-change: transform;
@@ -1301,43 +1302,50 @@ function handleFiles(files) {
 // ══════════════════════════════════════════════
 //  BOTTOM SHEET (mobile)
 // ══════════════════════════════════════════════
-const sheet = document.getElementById('sheet');
-let sheetState = 'peek';
-
+const sheet        = document.getElementById('sheet');
 const sheetOverlay = document.getElementById('sheet-overlay');
+let sheetState     = 'peek';
 
 function setSheet(state) {
   sheetState = state;
   sheet.classList.remove('mid', 'open');
   if (state === 'mid')  sheet.classList.add('mid');
   if (state === 'open') sheet.classList.add('open');
-  // Overlay visível apenas quando sheet está mid ou open
   sheetOverlay.classList.toggle('visible', state !== 'peek');
 }
 
-// Toque no overlay fecha a sheet
+// Overlay fecha ao tocar
+sheetOverlay.addEventListener('touchend', e => {
+  e.preventDefault();
+  setSheet('peek');
+}, {passive: false});
 sheetOverlay.addEventListener('click', () => setSheet('peek'));
 
-// Swipe no handle: detecta direção e cicla entre estados
-let touchStartY = 0;
+// Swipe/tap no handle
+const handle     = document.getElementById('sheet-handle');
+let   swipeStart = 0;
 
-document.getElementById('sheet-handle').addEventListener('touchstart', e => {
-  touchStartY = e.touches[0].clientY;
+handle.addEventListener('touchstart', e => {
+  swipeStart = e.touches[0].clientY;
 }, {passive: true});
 
-document.getElementById('sheet-handle').addEventListener('touchend', e => {
-  const dy = e.changedTouches[0].clientY - touchStartY;
-  if (Math.abs(dy) < 10) {
-    // tap — cicla para frente
+handle.addEventListener('touchend', e => {
+  const dy = e.changedTouches[0].clientY - swipeStart;
+  if (Math.abs(dy) < 12) {
+    // tap — cicla
     setSheet(sheetState === 'peek' ? 'mid' : sheetState === 'mid' ? 'open' : 'peek');
   } else if (dy < -30) {
-    // swipe up — abre mais
     setSheet(sheetState === 'peek' ? 'mid' : 'open');
   } else if (dy > 30) {
-    // swipe down — fecha mais
     setSheet(sheetState === 'open' ? 'mid' : 'peek');
   }
 }, {passive: true});
+
+// Clique desktop
+handle.addEventListener('click', e => {
+  if (e.pointerType === 'touch') return; // já tratado no touchend
+  setSheet(sheetState === 'peek' ? 'mid' : sheetState === 'mid' ? 'open' : 'peek');
+});
 
 // ══════════════════════════════════════════════
 //  EVENTS
