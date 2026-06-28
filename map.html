@@ -1480,10 +1480,10 @@ function renderSnapshot(idx) {
   if (snap.boundingBox) {
     const {northEast:ne,southWest:sw} = snap.boundingBox;
     if (animPlaying) {
-      // Modo animação: fitBounds sem animação
-      // O bbox fica sempre centrado e no tamanho certo — o mapa se ajusta instantaneamente
+      // Modo animação: fitBounds sem padding e sem animação
+      // Padding zero = bbox ocupa exatamente o viewport, sem encolher
       map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {
-        padding: [40, 40],
+        padding: [0, 0],
         animate: false,
         duration: 0,
       });
