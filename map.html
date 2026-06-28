@@ -1480,13 +1480,33 @@ function renderSnapshot(idx) {
   if (snap.boundingBox) {
     const {northEast:ne,southWest:sw} = snap.boundingBox;
     if (animPlaying) {
-      // Modo animação: fitBounds sem padding e sem animação
-      // Padding zero = bbox ocupa exatamente o viewport, sem encolher
-      map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {
-        padding: [0, 0],
-        animate: false,
-        duration: 0,
-      });
+      // Modo animação — simula a tela do device:
+      // O bbox representa a viewport física (tamanho fixo na tela).
+      // O zoom do Leaflet é calculado para que o bbox geográfico DO PRIMEIRO STEP
+      // ocupe sempre o mesmo espaço em pixels — depois só o centro muda.
+      // Quando o usuário dá zoom in, o bbox geográfico encolhe mas o retângulo
+      // amarelo na tela fica do mesmo tamanho — o mapa fica mais detalhado dentro dele.
+      const centerLat = (ne.lat + sw.lat) / 2;
+      const centerLng = (ne.lng + sw.lng) / 2;
+
+      // Usar sempre o bbox do step 0 como referência de tamanho em pixels
+      const refSnap = snapshots[0];
+      const refBB   = refSnap.boundingBox;
+      const refNE   = refBB.northEast;
+      const refSW   = refBB.southWest;
+
+      // Calcular o zoom base que faz o bbox de referência caber no container
+      const baseZoom = map.getBoundsZoom(
+        [[refSW.lat, refSW.lng],[refNE.lat, refNE.lng]],
+        false, [0, 0]
+      );
+
+      // Calcular quanto menor é o bbox atual em relação ao de referência (em graus)
+      const refLatSpan  = Math.abs(refNE.lat - refSW.lat);
+      const curLatSpan  = Math.abs(ne.lat - sw.lat);
+      const zoomDelta   = Math.log2(refLatSpan / curLatSpan);
+
+      map.setView([centerLat, centerLng], baseZoom + zoomDelta, { animate: false });
     } else {
       map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
     }
