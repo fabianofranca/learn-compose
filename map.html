@@ -1521,10 +1521,18 @@ function renderSnapshot(idx) {
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
       const targetZoom = baseZoom + zoomDelta;
-      // DEBUG
+      // DEBUG — aparece no topo da lista da bottom sheet
       const size = map.getSize();
-      document.getElementById('snap-ts').textContent =
-        `${size.x}x${size.y} base:${baseZoom.toFixed(2)} Δ:${zoomDelta.toFixed(3)} →${targetZoom.toFixed(2)} DPR:${window.devicePixelRatio}`;
+      const dbgEl = document.getElementById('mobile-point-list');
+      if (dbgEl) dbgEl.insertAdjacentHTML('afterbegin',
+        `<div style="background:#1a2540;color:#93c5fd;font-size:.7rem;font-family:monospace;padding:8px 14px;border-bottom:1px solid #2a2d3a">
+          container: ${size.x}×${size.y}px<br>
+          DPR: ${window.devicePixelRatio}<br>
+          baseZoom: ${baseZoom.toFixed(3)}<br>
+          zoomDelta: ${zoomDelta.toFixed(3)}<br>
+          targetZoom: ${targetZoom.toFixed(3)}
+        </div>`
+      );
       map.setView([centerLat, centerLng], targetZoom, { animate: true });
     }
   }
