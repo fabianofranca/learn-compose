@@ -972,18 +972,33 @@ function classify(snap) {
 // Dada a lista de layers do ponto e os toggles ativos,
 // retorna o tipo a renderizar ou null se nenhum toggle cobre este ponto.
 //
-// Regra do toggle Source: exibe o ponto com icone source APENAS se nenhum
-// outro toggle (added/removed/kept/orphan/ignored) ja o cobre.
-// Isso evita que source "ressuscite" pontos cujo toggle foi desligado.
+// Todos os toggles são completamente independentes entre si.
+// Um ponto pode pertencer a múltiplas layers simultaneamente — inclusive
+// combinações anômalas como {added, removed, source} (bug grave) ou
+// {removed, source} (saiu do diff mas source ainda retornou).
+//
+// A função percorre a precedência e retorna o PRIMEIRO tipo cujo toggle
+// esteja ativo. Source é sempre o último fallback — aparece quando
+// o ponto existe na source e todos os outros toggles relevantes estão off.
+//
+// Exemplos:
+//   {added, source}          add=on             → 'added'
+//   {added, source}          add=off, src=on    → 'source'
+//   {added, source}          add=off, src=off   → null
+//   {removed, source}        rem=on             → 'removed'
+//   {removed, source}        rem=off, src=on    → 'source'
+//   {added, removed, source} add=on, rem=on     → 'added'  (precedência)
+//   {added, removed, source} add=off, rem=on    → 'removed'
+//   {added, removed, source} add=off, rem=off, src=on → 'source'
+//   {added}  (sem source)    add=off, src=on    → null
+//   {orphan} (sem source)    orp=off, src=on    → null
 function resolveRenderType(layers) {
   if (layers.has('added')   && layerVisible.added)   return 'added';
   if (layers.has('removed') && layerVisible.removed)  return 'removed';
   if (layers.has('orphan')  && layerVisible.orphan)   return 'orphan';
   if (layers.has('ignored') && layerVisible.ignored)  return 'ignored';
   if (layers.has('kept')    && layerVisible.kept)     return 'kept';
-  const hasDiffLayer = layers.has('added') || layers.has('removed') ||
-                       layers.has('kept')  || layers.has('orphan')  || layers.has('ignored');
-  if (layers.has('source') && layerVisible.source && !hasDiffLayer) return 'source';
+  if (layers.has('source')  && layerVisible.source)   return 'source';
   return null;
 }
 
