@@ -1513,28 +1513,20 @@ function renderSnapshot(idx) {
       const refLatSpan = Math.abs(refBB.northEast.lat - refBB.southWest.lat);
       const curLatSpan = Math.abs(ne.lat - sw.lat);
       const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
-      const isMobile2 = window.innerWidth < 768;
-      const pad2 = isMobile2 ? [80, 20] : [40, 40];
+      const isMobile2   = window.innerWidth < 768;
+      const padTop2     = isMobile2 ? 64 : 40;
+      const padBottom2  = isMobile2 ? 148 : 40;
+      const padH2       = isMobile2 ? 16 : 40;
       const baseZoom   = map.getBoundsZoom(
         [[refBB.southWest.lat, refBB.southWest.lng],
          [refBB.northEast.lat, refBB.northEast.lng]],
-        false, pad2
+        false,
+        L.point(padH2, Math.max(padTop2, padBottom2))
       );
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
       const targetZoom = baseZoom + zoomDelta;
-      // DEBUG — aparece no topo da lista da bottom sheet
-      const size = map.getSize();
-      const dbgEl = document.getElementById('mobile-point-list');
-      if (dbgEl) dbgEl.insertAdjacentHTML('afterbegin',
-        `<div style="background:#1a2540;color:#93c5fd;font-size:.7rem;font-family:monospace;padding:8px 14px;border-bottom:1px solid #2a2d3a">
-          container: ${size.x}×${size.y}px<br>
-          DPR: ${window.devicePixelRatio}<br>
-          baseZoom: ${baseZoom.toFixed(3)}<br>
-          zoomDelta: ${zoomDelta.toFixed(3)}<br>
-          targetZoom: ${targetZoom.toFixed(3)}
-        </div>`
-      );
+
       map.setView([centerLat, centerLng], targetZoom, { animate: true });
     }
   }
@@ -2050,18 +2042,22 @@ function startAnim() {
 
   // Calcular e fixar o zoom base UMA ÚNICA VEZ antes da animação começar
   const refBB = snapshots[0].boundingBox;
+  // Padding dinâmico baseado nos elementos reais da UI
   const isMobile = window.innerWidth < 768;
-  const pad = isMobile ? [80, 20] : [40, 40];
+  const layerPillH  = 48;  // altura aproximada da layer pill
+  const sheetPeekH  = 72;  // altura da bottom sheet em peek
+  const navBtnH     = 60;  // altura dos botões de nav
+  const padTop      = isMobile ? layerPillH + 16 : 40;
+  const padBottom   = isMobile ? sheetPeekH + navBtnH + 16 : 40;
+  const padH        = isMobile ? 16 : 40;
   animBaseZoom = map.getBoundsZoom(
     [[refBB.southWest.lat, refBB.southWest.lng],
      [refBB.northEast.lat, refBB.northEast.lng]],
-    false, pad
+    false,
+    L.point(padH, Math.max(padTop, padBottom))
   );
 
-  // DEBUG: mostrar info do container e zoom na topbar
-  const size = map.getSize();
-  document.getElementById('snap-ts').textContent =
-    `container:${size.x}x${size.y} baseZoom:${animBaseZoom.toFixed(2)} DPR:${window.devicePixelRatio}`;
+
 
   animPlaying = true;
   btnPlay.textContent = '⏹ Stop';
