@@ -1481,32 +1481,37 @@ function renderSnapshot(idx) {
     const {northEast:ne,southWest:sw} = snap.boundingBox;
     if (animPlaying) {
       // Modo animação — simula a tela do device:
-      // O bbox representa a viewport física (tamanho fixo na tela).
-      // O zoom do Leaflet é calculado para que o bbox geográfico DO PRIMEIRO STEP
-      // ocupe sempre o mesmo espaço em pixels — depois só o centro muda.
-      // Quando o usuário dá zoom in, o bbox geográfico encolhe mas o retângulo
-      // amarelo na tela fica do mesmo tamanho — o mapa fica mais detalhado dentro dele.
+      // O bbox amarelo representa a tela física do device (tamanho fixo na tela).
+      // A cada step, calculamos qual zoom do Leaflet faz o bbox ATUAL ocupar
+      // exatamente o mesmo tamanho em pixels que o bbox do step inicial.
+      // Resultado: bbox sempre do mesmo tamanho, mapa fica mais detalhado no zoom in.
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
 
-      // Usar sempre o bbox do step 0 como referência de tamanho em pixels
-      const refSnap = snapshots[0];
+      // Primeiro step com bbox válido como referência de tamanho físico
+      const refSnap = snapshots.find(s => s.boundingBox) || snapshots[0];
       const refBB   = refSnap.boundingBox;
       const refNE   = refBB.northEast;
       const refSW   = refBB.southWest;
 
-      // Calcular o zoom base que faz o bbox de referência caber no container
+      // Zoom base: faz o bbox de referência caber exatamente no container
       const baseZoom = map.getBoundsZoom(
         [[refSW.lat, refSW.lng],[refNE.lat, refNE.lng]],
         false, [0, 0]
       );
 
-      // Calcular quanto menor é o bbox atual em relação ao de referência (em graus)
-      const refLatSpan  = Math.abs(refNE.lat - refSW.lat);
-      const curLatSpan  = Math.abs(ne.lat - sw.lat);
-      const zoomDelta   = Math.log2(refLatSpan / curLatSpan);
+      // zoomDelta: quanto o bbox atual encolheu vs referência → aumenta zoom proporcionalmente
+      // Se bbox encolheu pela metade (zoom in 1x) → zoomDelta = 1
+      // Se bbox encolheu 1/4 (zoom in 2x) → zoomDelta = 2
+      const refLatSpan = Math.abs(refNE.lat - refSW.lat);
+      const curLatSpan = Math.abs(ne.lat   - sw.lat);
+      const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
+      const targetZoom = baseZoom + zoomDelta;
 
-      map.setView([centerLat, centerLng], baseZoom + zoomDelta, { animate: false });
+      map.setView([centerLat, centerLng], targetZoom, { animate: false });
+      // Debug: mostra zoom calculado na topbar
+      const dbg = document.getElementById('snap-ts');
+      if (dbg) dbg.textContent = `zoom base:${baseZoom.toFixed(2)} delta:${zoomDelta.toFixed(3)} → ${targetZoom.toFixed(3)}`;
     } else {
       map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
     }
