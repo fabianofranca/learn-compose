@@ -1058,26 +1058,37 @@ function primaryType(pt) {
   return 'source';
 }
 
-// Monta badges de todas as layers do ponto para expor anomalias
+// Monta badges de todas as layers do ponto; aplica alpha quando toggle desligado
 function layerBadges(pt) {
   const order = ['added','removed','orphan','ignored','kept','source'];
   const icons  = { added:'▲', removed:'▼', kept:'●', source:'◉', orphan:'◆', ignored:'◆' };
+  const layerToggle = { added:'added', removed:'removed', kept:'kept', source:'source', orphan:'orphan', ignored:'ignored' };
   return [...pt.layers]
     .sort((a,b) => order.indexOf(a)-order.indexOf(b))
-    .map(l => `<span class="pe-tag ${l}">${icons[l]}</span>`)
+    .map(l => {
+      const dim = !layerVisible[layerToggle[l]];
+      return `<span class="pe-tag ${l}" style="${dim ? 'opacity:.25;' : ''}">${icons[l]}</span>`;
+    })
     .join('');
 }
 
 function buildPointListHTML(points) {
   if (!points.length) return '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos.</div>';
   const order = ['added','removed','orphan','ignored','kept','source'];
+  // Um ponto é "visível" se pelo menos uma das suas layers está ativa
+  const layerToggle = { added:'added', removed:'removed', kept:'kept', source:'source', orphan:'orphan', ignored:'ignored' };
+  function isVisible(pt) {
+    return [...pt.layers].some(l => layerVisible[layerToggle[l]]);
+  }
   return [...points]
     .sort((a,b) => order.indexOf(primaryType(a)) - order.indexOf(primaryType(b)))
     .map(pt => {
-      const ptype = primaryType(pt);
+      const ptype   = primaryType(pt);
+      const visible = isVisible(pt);
+      const icons   = {added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'};
       return `
-      <div class="point-entry ${ptype}" onclick="flyTo(${pt.lat},${pt.lng})">
-        <div class="pe-icon ${ptype}">${{added:'▲',removed:'▼',kept:'●',source:'◉',orphan:'◆',ignored:'◆'}[ptype]||'●'}</div>
+      <div class="point-entry ${ptype}" style="${visible ? '' : 'opacity:.25; pointer-events:none;'}" onclick="flyTo(${pt.lat},${pt.lng})">
+        <div class="pe-icon ${ptype}">${icons[ptype]||'●'}</div>
         <div class="pe-body">
           <div class="pe-name ${pt.layers.has('removed')&&!pt.layers.has('added')?'struck':''}">${pt.name||'(sem nome)'}</div>
           <div class="pe-id">${pt.id}</div>
