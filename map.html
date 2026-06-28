@@ -800,6 +800,91 @@ html, body {
 }
 .meta-step-btn:active { background: var(--border2); }
 
+/* Botão de animação */
+.btn-play {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 4px 9px;
+  font-size: .75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s, background .15s;
+  flex-shrink: 0;
+}
+.btn-play:hover { border-color: var(--added); color: var(--added); }
+.btn-play.playing {
+  background: #0d2518;
+  border-color: var(--added);
+  color: var(--added);
+}
+
+/* Painel de velocidade */
+.speed-panel {
+  position: fixed;
+  top: calc(var(--topbar-h) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(13,15,20,.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  z-index: 510;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 220px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.speed-panel.open { display: flex; }
+
+.speed-label {
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--muted);
+  font-weight: 700;
+}
+.speed-options {
+  display: flex;
+  gap: 5px;
+}
+.speed-opt {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 5px;
+  border: 1px solid var(--border2);
+  background: var(--surf2);
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.speed-opt:hover { border-color: var(--added); color: var(--added); }
+.speed-opt.active { background: #0d2518; border-color: var(--added); color: var(--added); }
+
+.anim-progress {
+  height: 2px;
+  background: var(--border2);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.anim-progress-bar {
+  height: 100%;
+  background: var(--added);
+  border-radius: 1px;
+  transition: width .1s linear;
+  width: 0%;
+}
+
 /* Navegação no topbar — só desktop */
 .topbar-nav {
   display: none;
@@ -915,6 +1000,8 @@ html, body {
     <button class="topbar-nav-btn" id="btn-prev-top" disabled>◀</button>
     <button class="topbar-nav-btn" id="btn-next-top" disabled>▶</button>
   </div>
+  <button class="btn-play" id="btn-play" title="Modo animação">▶ Play</button>
+
   <div class="topbar-actions">
     <button class="meta-step-btn" id="btn-step-meta" title="Metadados do step">META</button>
     <button class="icon-btn" id="btn-legend" title="Legenda" style="font-size:.8rem; font-weight:700; color:var(--muted)">?</button>
@@ -1059,6 +1146,21 @@ html, body {
         <div class="legend-desc">Barra <span style="color:#22c55e">verde</span> = pontos adicionados · Barra <span style="color:#ef4444">vermelha</span> = removidos · Altura proporcional ao volume</div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- SPEED PANEL -->
+<div class="speed-panel" id="speed-panel">
+  <div class="speed-label">Velocidade de animação</div>
+  <div class="speed-options">
+    <button class="speed-opt" data-speed="0.5">0.5×</button>
+    <button class="speed-opt active" data-speed="1">1×</button>
+    <button class="speed-opt" data-speed="2">2×</button>
+    <button class="speed-opt" data-speed="4">4×</button>
+    <button class="speed-opt" data-speed="10">10×</button>
+  </div>
+  <div class="anim-progress">
+    <div class="anim-progress-bar" id="anim-progress-bar"></div>
   </div>
 </div>
 
@@ -1660,8 +1762,8 @@ document.getElementById('btn-load').addEventListener('click', () => document.get
 document.getElementById('btn-load-empty').addEventListener('click', () => document.getElementById('file-input').click());
 document.getElementById('file-input').addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
 
-function navPrev() { if (currentIdx>0) renderSnapshot(currentIdx-1); }
-function navNext() { if (currentIdx<snapshots.length-1) renderSnapshot(currentIdx+1); }
+function navPrev() { stopAnimIfPlaying(); if (currentIdx>0) renderSnapshot(currentIdx-1); }
+function navNext() { stopAnimIfPlaying(); if (currentIdx<snapshots.length-1) renderSnapshot(currentIdx+1); }
 
 document.getElementById('btn-prev').addEventListener('click', navPrev);
 document.getElementById('btn-next').addEventListener('click', navNext);
@@ -1669,8 +1771,9 @@ document.getElementById('btn-prev-top').addEventListener('click', navPrev);
 document.getElementById('btn-next-top').addEventListener('click', navNext);
 
 document.addEventListener('keydown', e => {
-  if (e.key==='ArrowLeft'  && currentIdx>0)                    renderSnapshot(currentIdx-1);
-  if (e.key==='ArrowRight' && currentIdx<snapshots.length-1)   renderSnapshot(currentIdx+1);
+  if (e.key==='ArrowLeft'  && currentIdx>0)                  { stopAnimIfPlaying(); renderSnapshot(currentIdx-1); }
+  if (e.key==='ArrowRight' && currentIdx<snapshots.length-1) { stopAnimIfPlaying(); renderSnapshot(currentIdx+1); }
+  if (e.key===' ') { e.preventDefault(); animPlaying ? stopAnim() : startAnim(); }
 });
 
 document.querySelectorAll('.layer-dot-btn').forEach(btn => {
@@ -1818,6 +1921,116 @@ window.openPointMeta = function(ptJson) {
     { title: 'Metadata', meta }
   ]);
 };
+
+// ══════════════════════════════════════════════
+//  ANIMATION MODE
+// ══════════════════════════════════════════════
+let animTimer    = null;
+let animMs       = 1000;
+let animPlaying  = false;
+let animProgress = 0;
+let animRafId    = null;
+let animStart    = null;
+
+const btnPlay       = document.getElementById('btn-play');
+const speedPanel    = document.getElementById('speed-panel');
+const progressBar   = document.getElementById('anim-progress-bar');
+
+// Multiplicador de velocidade: 1 = tempo real, 2 = 2x mais rápido, etc.
+let animSpeed = 1;
+
+function setAnimSpeed(multiplier) {
+  animSpeed = multiplier;
+  document.querySelectorAll('.speed-opt').forEach(b => {
+    b.classList.toggle('active', parseFloat(b.dataset.speed) === multiplier);
+  });
+}
+
+// Retorna o delay em ms até o próximo step, respeitando o multiplicador
+function delayToNext(fromIdx) {
+  const next = fromIdx + 1;
+  if (next >= snapshots.length) return 0;
+  const t0 = new Date(snapshots[fromIdx].timestamp).getTime();
+  const t1 = new Date(snapshots[next].timestamp).getTime();
+  const delta = Math.max(200, t1 - t0); // mínimo 200ms para ser legível
+  return delta / animSpeed;
+}
+
+function animStep() {
+  if (!animPlaying) return;
+  const next = currentIdx + 1;
+  if (next >= snapshots.length) {
+    stopAnim();
+    return;
+  }
+  renderSnapshot(next);
+  scheduleNext();
+}
+
+function scheduleNext() {
+  animMs    = delayToNext(currentIdx);
+  animStart = performance.now();
+  cancelAnimationFrame(animRafId);
+  animRafId = requestAnimationFrame(tickProgress);
+}
+
+function tickProgress(now) {
+  if (!animPlaying) return;
+  const elapsed = now - animStart;
+  const pct     = Math.min(100, (elapsed / animMs) * 100);
+  progressBar.style.width = pct + '%';
+  if (elapsed >= animMs) {
+    progressBar.style.width = '0%';
+    animStep();
+  } else {
+    animRafId = requestAnimationFrame(tickProgress);
+  }
+}
+
+function startAnim() {
+  if (!snapshots.length) return;
+  animPlaying = true;
+  btnPlay.textContent = '⏹ Stop';
+  btnPlay.classList.add('playing');
+  speedPanel.classList.add('open');
+  if (currentIdx >= snapshots.length - 1) renderSnapshot(0);
+  scheduleNext();
+}
+
+function stopAnim() {
+  animPlaying = false;
+  cancelAnimationFrame(animRafId);
+  progressBar.style.width = '0%';
+  btnPlay.textContent = '▶ Play';
+  btnPlay.classList.remove('playing');
+}
+
+btnPlay.addEventListener('click', () => {
+  if (animPlaying) stopAnim();
+  else startAnim();
+});
+
+document.addEventListener('click', e => {
+  if (!speedPanel.contains(e.target) && e.target !== btnPlay) {
+    if (!animPlaying) speedPanel.classList.remove('open');
+  }
+});
+
+document.querySelectorAll('.speed-opt').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    setAnimSpeed(parseFloat(btn.dataset.speed));
+    if (animPlaying) {
+      cancelAnimationFrame(animRafId);
+      scheduleNext();
+    }
+  });
+});
+
+// Parar animação ao navegar manualmente
+function stopAnimIfPlaying() {
+  if (animPlaying) stopAnim();
+}
 
 // ══════════════════════════════════════════════
 //  LEGEND PANEL
