@@ -970,15 +970,20 @@ function classify(snap) {
 }
 
 // Dada a lista de layers do ponto e os toggles ativos,
-// retorna o tipo a renderizar (com precedência: added > removed > kept > source)
-// ou null se nenhum toggle cobre este ponto.
+// retorna o tipo a renderizar ou null se nenhum toggle cobre este ponto.
+//
+// Regra do toggle Source: exibe o ponto com icone source APENAS se nenhum
+// outro toggle (added/removed/kept/orphan/ignored) ja o cobre.
+// Isso evita que source "ressuscite" pontos cujo toggle foi desligado.
 function resolveRenderType(layers) {
   if (layers.has('added')   && layerVisible.added)   return 'added';
   if (layers.has('removed') && layerVisible.removed)  return 'removed';
   if (layers.has('orphan')  && layerVisible.orphan)   return 'orphan';
   if (layers.has('ignored') && layerVisible.ignored)  return 'ignored';
   if (layers.has('kept')    && layerVisible.kept)     return 'kept';
-  if (layers.has('source')  && layerVisible.source)   return 'source';
+  const hasDiffLayer = layers.has('added') || layers.has('removed') ||
+                       layers.has('kept')  || layers.has('orphan')  || layers.has('ignored');
+  if (layers.has('source') && layerVisible.source && !hasDiffLayer) return 'source';
   return null;
 }
 
@@ -1134,14 +1139,30 @@ function countPoints(points, snap) {
   return c;
 }
 
+// Atualiza apenas o alpha dos badges de stat sem reconstruir HTML
+function updateStatAlpha() {
+  const chipAlpha = l => layerVisible[l] ? '' : 'opacity:.3;';
+  // mobile chips — aplica estilo inline em cada chip já renderizado
+  ['added','removed','kept','source','orphan','ignored'].forEach(l => {
+    document.querySelectorAll(`.stat-chip.${l}`).forEach(el => {
+      el.style.opacity = layerVisible[l] ? '1' : '0.3';
+    });
+  });
+  // desktop stat values
+  ['added','removed','kept','source','orphan','ignored'].forEach(l => {
+    const el = document.getElementById(`ds-${l}`);
+    if (el) el.style.opacity = layerVisible[l] ? '1' : '0.3';
+  });
+}
+
 function renderPointList(points, snap) {
   const html = buildPointListHTML(points);
   const c    = countPoints(points, snap);
-  const isMobile = window.innerWidth < 768;
 
   // mobile sheet
   document.getElementById('mobile-point-list').innerHTML = html;
-  applyListFilter();
+  document.getElementById('desktop-point-list').innerHTML = html;
+
   const chipAlpha = l => layerVisible[l] ? '' : 'opacity:.3;';
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-chip added"   style="${chipAlpha('added')}">▲${c.added}</div>
@@ -1152,11 +1173,10 @@ function renderPointList(points, snap) {
     ${c.ignored ? `<div class="stat-chip ignored" style="${chipAlpha('ignored')}">◆${c.ignored}</div>` : ''}
   `;
 
-  // desktop sidebar
-  document.getElementById('desktop-point-list').innerHTML = html;
   const ds = document.getElementById('desktop-stats');
   const applyAlpha = (id, layer) => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.textContent = c[layer] ?? 0;
     el.style.opacity = layerVisible[layer] ? '1' : '0.3';
   };
@@ -1167,6 +1187,9 @@ function renderPointList(points, snap) {
   applyAlpha('ds-orphan',  'orphan');
   applyAlpha('ds-ignored', 'ignored');
   ds.style.display = 'grid';
+
+  // Aplica filtro de visibilidade no DOM após renderizar
+  applyListFilter();
 }
 
 window.flyTo = function(lat, lng) {
@@ -1305,10 +1328,12 @@ document.querySelectorAll('.layer-dot-btn').forEach(btn => {
     layerVisible[l] = !layerVisible[l];
     btn.classList.toggle('off', !layerVisible[l]);
     if (currentIdx >= 0) {
-      // Mapa: re-renderiza marcadores
+      // Mapa: re-renderiza marcadores (também chama renderPointList internamente)
       renderSnapshot(currentIdx);
-      // Lista: filtra DOM diretamente sem recriar HTML
+      // Lista: aplica filtro APÓS o renderSnapshot ter reconstruido o HTML
       applyListFilter();
+      // Atualiza alpha dos badges de stat
+      updateStatAlpha();
     }
   });
 });
