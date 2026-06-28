@@ -1071,7 +1071,7 @@ function layerBadges(pt) {
 function buildPointListHTML(points) {
   if (!points.length) return '<div style="padding:20px 16px;color:var(--muted);font-size:.8rem">Sem pontos.</div>';
   const order = ['added','removed','orphan','ignored','kept','source'];
-  // Um ponto é "visível" se resolveRenderType retorna algo — mesma lógica do mapa
+  // Visibilidade sincronizada com o mapa via resolveRenderType
   function isVisible(pt) {
     return resolveRenderType(pt.layers) !== null;
   }
