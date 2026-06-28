@@ -1494,12 +1494,28 @@ function renderSnapshot(idx) {
       const centerLat = (ne.lat + sw.lat) / 2;
       const centerLng = (ne.lng + sw.lng) / 2;
 
-      // Usar o bbox atual diretamente — o Leaflet calcula o zoom para caber no container
-      // Como o container tem tamanho fixo em pixels, bbox menor → zoom maior automaticamente
-      const targetZoom = map.getBoundsZoom(
-        [[sw.lat, sw.lng],[ne.lat, ne.lng]],
+      // Calcular zoom manualmente usando a projeção do Leaflet
+      // Independente do tamanho real do container (que varia no mobile pela bottom sheet)
+      // Usamos o tamanho do bbox de referência em pixels para normalizar
+      //
+      // Fórmula: cada nível de zoom dobra o número de pixels por grau
+      // Se o bbox encolheu pela metade em graus → precisa de +1 zoom para ocupar o mesmo espaço
+
+      // Step de referência: bbox do primeiro snapshot
+      const refBB     = snapshots[0].boundingBox;
+      const refLatSpan = Math.abs(refBB.northEast.lat - refBB.southWest.lat);
+      const curLatSpan = Math.abs(ne.lat - sw.lat);
+
+      // Zoom base: o que o Leaflet calcularia para o bbox de referência
+      const baseZoom   = map.getBoundsZoom(
+        [[refBB.southWest.lat, refBB.southWest.lng],
+         [refBB.northEast.lat, refBB.northEast.lng]],
         false, [0, 0]
       );
+
+      // Delta: quanto o bbox encolheu em escala logarítmica
+      const zoomDelta  = Math.log2(refLatSpan / curLatSpan);
+      const targetZoom = baseZoom + zoomDelta;
 
       map.setView([centerLat, centerLng], targetZoom, { animate: false });
     } else {
