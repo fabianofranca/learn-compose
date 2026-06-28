@@ -370,6 +370,27 @@ html, body {
   flex-shrink: 0;
 }
 
+/* Setas de nav dentro da sheet */
+.sheet-nav {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.sheet-nav-btn {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surf2);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: .9rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background .12s;
+}
+.sheet-nav-btn:active { background: var(--border2); }
+.sheet-nav-btn:disabled { opacity: .25; pointer-events: none; }
+
 .sheet-peek-title {
   font-size: .75rem;
   font-weight: 600;
@@ -1197,6 +1218,10 @@ html, body {
   <div class="sheet-handle-area" id="sheet-handle">
     <div class="sheet-handle"></div>
     <div class="sheet-peek-row">
+      <div class="sheet-nav">
+        <button class="sheet-nav-btn" id="btn-prev-sheet" disabled>◀</button>
+        <button class="sheet-nav-btn" id="btn-next-sheet" disabled>▶</button>
+      </div>
       <div class="sheet-peek-title" id="sheet-title">Pontos do snapshot</div>
       <div class="stats-row" id="stats-row"></div>
     </div>
@@ -1471,10 +1496,12 @@ function renderSnapshot(idx) {
   document.getElementById('snap-ts').textContent = ts.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'medium'});
 
   // Nav buttons
-  document.getElementById('btn-prev').disabled     = idx===0;
-  document.getElementById('btn-next').disabled     = idx===snapshots.length-1;
-  document.getElementById('btn-prev-top').disabled = idx===0;
-  document.getElementById('btn-next-top').disabled = idx===snapshots.length-1;
+  document.getElementById('btn-prev').disabled       = idx===0;
+  document.getElementById('btn-next').disabled       = idx===snapshots.length-1;
+  document.getElementById('btn-prev-top').disabled   = idx===0;
+  document.getElementById('btn-next-top').disabled   = idx===snapshots.length-1;
+  document.getElementById('btn-prev-sheet').disabled = idx===0;
+  document.getElementById('btn-next-sheet').disabled = idx===snapshots.length-1;
 
   // Fit
   if (snap.boundingBox) {
@@ -1822,6 +1849,8 @@ document.getElementById('btn-prev').addEventListener('click', navPrev);
 document.getElementById('btn-next').addEventListener('click', navNext);
 document.getElementById('btn-prev-top').addEventListener('click', navPrev);
 document.getElementById('btn-next-top').addEventListener('click', navNext);
+document.getElementById('btn-prev-sheet').addEventListener('click', navPrev);
+document.getElementById('btn-next-sheet').addEventListener('click', navNext);
 
 document.addEventListener('keydown', e => {
   if (e.key==='ArrowLeft'  && currentIdx>0)                  { stopAnimIfPlaying(); renderSnapshot(currentIdx-1); }
