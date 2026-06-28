@@ -742,6 +742,27 @@ html, body {
 }
 .meta-step-btn:active { background: var(--border2); }
 
+/* Navegação no topbar — só desktop */
+.topbar-nav {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.topbar-nav-btn {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surf2);
+  color: var(--text);
+  font-size: .8rem;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s;
+}
+.topbar-nav-btn:hover:not(:disabled) { border-color: var(--source); color: var(--source); }
+.topbar-nav-btn:disabled { opacity: .25; cursor: default; }
+
 /* Mobile: drawer full width */
 @media (max-width: 767px) {
   .meta-drawer {
@@ -813,8 +834,10 @@ html, body {
 
   /* hide mobile-only */
   .sheet        { display: none !important; }
-  .map-nav      { padding: 0 calc(300px + 12px) 0 12px; }
+  .map-nav      { display: none; }
   .layer-pill   { left: calc(300px + 50%); transform: translateX(-50%); }
+  /* nav no topbar desktop */
+  .topbar-nav   { display: flex !important; }
 
   .timeline-bar { padding: 0 14px; }
   .tl-node      { min-width: 58px; }
@@ -830,6 +853,10 @@ html, body {
   <div class="topbar-logo">Map <span>Audit</span></div>
   <div class="topbar-snap" id="snap-counter">—</div>
   <div class="topbar-ts"  id="snap-ts"></div>
+  <div class="topbar-nav" id="topbar-nav">
+    <button class="topbar-nav-btn" id="btn-prev-top" disabled>◀</button>
+    <button class="topbar-nav-btn" id="btn-next-top" disabled>▶</button>
+  </div>
   <div class="topbar-actions">
     <button class="meta-step-btn" id="btn-step-meta" title="Metadados do step">META</button>
     <button class="icon-btn" id="btn-legend" title="Legenda" style="font-size:.8rem; font-weight:700; color:var(--muted)">?</button>
@@ -1281,8 +1308,10 @@ function renderSnapshot(idx) {
   document.getElementById('snap-ts').textContent = ts.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'medium'});
 
   // Nav buttons
-  document.getElementById('btn-prev').disabled = idx===0;
-  document.getElementById('btn-next').disabled = idx===snapshots.length-1;
+  document.getElementById('btn-prev').disabled     = idx===0;
+  document.getElementById('btn-next').disabled     = idx===snapshots.length-1;
+  document.getElementById('btn-prev-top').disabled = idx===0;
+  document.getElementById('btn-next-top').disabled = idx===snapshots.length-1;
 
   // Fit
   if (snap.boundingBox) {
@@ -1570,8 +1599,13 @@ document.getElementById('btn-load').addEventListener('click', () => document.get
 document.getElementById('btn-load-empty').addEventListener('click', () => document.getElementById('file-input').click());
 document.getElementById('file-input').addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
 
-document.getElementById('btn-prev').addEventListener('click', () => { if (currentIdx>0) renderSnapshot(currentIdx-1); });
-document.getElementById('btn-next').addEventListener('click', () => { if (currentIdx<snapshots.length-1) renderSnapshot(currentIdx+1); });
+function navPrev() { if (currentIdx>0) renderSnapshot(currentIdx-1); }
+function navNext() { if (currentIdx<snapshots.length-1) renderSnapshot(currentIdx+1); }
+
+document.getElementById('btn-prev').addEventListener('click', navPrev);
+document.getElementById('btn-next').addEventListener('click', navNext);
+document.getElementById('btn-prev-top').addEventListener('click', navPrev);
+document.getElementById('btn-next-top').addEventListener('click', navNext);
 
 document.addEventListener('keydown', e => {
   if (e.key==='ArrowLeft'  && currentIdx>0)                    renderSnapshot(currentIdx-1);
