@@ -665,6 +665,65 @@ html, body {
   padding: 6px 14px;
 }
 
+/* Sub-árvore para valores Map<String,String> */
+.meta-node-map {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.meta-node-map:last-child { border-bottom: none; }
+
+.meta-node-map-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.meta-node-map-header:active { opacity: .7; }
+
+.meta-map-key {
+  font-size: .72rem;
+  font-family: var(--mono);
+  color: var(--source);
+  flex-shrink: 0;
+}
+.meta-map-arrow {
+  font-size: .6rem;
+  color: var(--muted2);
+  transition: transform .15s;
+  flex-shrink: 0;
+}
+.meta-map-arrow.open { transform: rotate(90deg); }
+.meta-map-type {
+  font-size: .62rem;
+  color: var(--muted2);
+  font-family: var(--mono);
+}
+
+.meta-subtree {
+  padding-left: 14px;
+  border-left: 1.5px solid var(--border2);
+  margin: 4px 0 2px 6px;
+  display: none;
+}
+.meta-subtree.open { display: block; }
+
+.meta-subtree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+}
+.meta-subtree-row:last-child { border-bottom: none; }
+
+.meta-sub-key   { font-size: .68rem; font-family: var(--mono); color: var(--kept); flex-shrink: 0; }
+.meta-sub-colon { font-size: .68rem; color: var(--muted2); flex-shrink: 0; }
+.meta-sub-value { font-size: .68rem; font-family: var(--mono); color: var(--text); word-break: break-all; flex: 1; }
+
 /* Tocar no ponto-entry abre o drawer */
 .point-entry { cursor: pointer; }
 
@@ -1542,10 +1601,52 @@ const metaDrawer      = document.getElementById('meta-drawer');
 const metaDrawerTitle = document.getElementById('meta-drawer-title');
 const metaDrawerBody  = document.getElementById('meta-drawer-body');
 
+// Contador global para IDs únicos de sub-árvores
+let _metaTreeId = 0;
+
+function renderMetaValue(k, v) {
+  // Valor string simples
+  if (typeof v === 'string') {
+    return `<div class="meta-node">
+      <span class="meta-key">${k}</span>
+      <span class="meta-colon">:</span>
+      <span class="meta-value">${v}</span>
+    </div>`;
+  }
+  // Valor objeto (Map<String,String>)
+  if (typeof v === 'object' && v !== null) {
+    const id       = `mt-${++_metaTreeId}`;
+    const subRows  = Object.entries(v).map(([sk, sv]) => `
+      <div class="meta-subtree-row">
+        <span class="meta-sub-key">${sk}</span>
+        <span class="meta-sub-colon">:</span>
+        <span class="meta-sub-value">${sv}</span>
+      </div>`).join('');
+    const count = Object.keys(v).length;
+    return `<div class="meta-node-map">
+      <div class="meta-node-map-header" onclick="toggleMetaSubtree('${id}')">
+        <span class="meta-map-key">${k}</span>
+        <span class="meta-colon">:</span>
+        <span class="meta-map-arrow" id="arr-${id}">▶</span>
+        <span class="meta-map-type">{${count}}</span>
+      </div>
+      <div class="meta-subtree" id="${id}">${subRows}</div>
+    </div>`;
+  }
+  return '';
+}
+
+window.toggleMetaSubtree = function(id) {
+  const el  = document.getElementById(id);
+  const arr = document.getElementById(`arr-${id}`);
+  if (!el) return;
+  const isOpen = el.classList.toggle('open');
+  arr?.classList.toggle('open', isOpen);
+};
+
 function buildMetaTree(sections) {
-  // sections: [ { title, meta: {key:val} | null, extra: [{label, value}] } ]
   return sections.map(sec => {
-    const entries = sec.meta ? Object.entries(sec.meta) : [];
+    const entries   = sec.meta ? Object.entries(sec.meta) : [];
     const extraRows = (sec.extra || []).map(e =>
       `<div class="meta-node">
         <span class="meta-key">${e.label}</span>
@@ -1554,13 +1655,7 @@ function buildMetaTree(sections) {
       </div>`
     ).join('');
     const metaRows = entries.length
-      ? entries.map(([k, v]) =>
-          `<div class="meta-node">
-            <span class="meta-key">${k}</span>
-            <span class="meta-colon">:</span>
-            <span class="meta-value">${v}</span>
-          </div>`
-        ).join('')
+      ? entries.map(([k, v]) => renderMetaValue(k, v)).join('')
       : `<div class="meta-empty">sem metadados</div>`;
 
     return `<div class="meta-section">
