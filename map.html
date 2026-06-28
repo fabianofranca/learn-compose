@@ -1480,11 +1480,13 @@ function renderSnapshot(idx) {
   if (snap.boundingBox) {
     const {northEast:ne,southWest:sw} = snap.boundingBox;
     if (animPlaying) {
-      // Modo animação: centraliza o mapa no centro do bbox sem animação
-      // O bbox fica "fixo na tela" e o mapa desliza por baixo
-      const centerLat = (ne.lat + sw.lat) / 2;
-      const centerLng = (ne.lng + sw.lng) / 2;
-      map.setView([centerLat, centerLng], map.getZoom(), { animate: false });
+      // Modo animação: fitBounds sem animação
+      // O bbox fica sempre centrado e no tamanho certo — o mapa se ajusta instantaneamente
+      map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {
+        padding: [40, 40],
+        animate: false,
+        duration: 0,
+      });
     } else {
       map.fitBounds([[sw.lat,sw.lng],[ne.lat,ne.lng]], {padding:[40,40]});
     }
